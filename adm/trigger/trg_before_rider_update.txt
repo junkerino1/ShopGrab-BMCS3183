@@ -1,0 +1,18 @@
+-- ============================================================
+-- TRIGGER: Before Rider Update
+-- Fires before a RIDER record is updated.
+-- Automatically manages the rider's status based on their
+-- ongoing_delivery count. If it hits 5, they become 'Busy'.
+-- If it drops below 5, they become 'Available'.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_before_rider_update
+BEFORE INSERT OR UPDATE OF ongoing_delivery ON RIDER
+FOR EACH ROW
+BEGIN
+    IF :NEW.ongoing_delivery >= 5 THEN
+        :NEW.status := 'Busy';
+    ELSE
+        :NEW.status := 'Available';
+    END IF;
+END;
+/

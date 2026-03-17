@@ -1,0 +1,22 @@
+CREATE OR REPLACE PROCEDURE prc_create_payment (
+    p_order_id         IN NUMBER,
+    p_final_amount     IN NUMBER,
+    p_payment_method   IN VARCHAR2,
+    p_status           OUT VARCHAR2
+) AS
+BEGIN
+    p_status := 'SUCCESS';
+
+    INSERT INTO PAYMENT (
+        payment_id, order_id, amount_paid,
+        payment_method, payment_status, created_at
+    ) VALUES (
+        payment_seq.NEXTVAL, p_order_id, p_final_amount,
+        p_payment_method, 'Completed', SYSDATE
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        p_status := 'Error in prc_create_payment: ' || SQLERRM;
+END;
+/

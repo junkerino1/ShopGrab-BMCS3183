@@ -1,0 +1,133 @@
+CREATE OR REPLACE PROCEDURE prc_apply_discounts (
+    p_customer_id      IN NUMBER,
+    p_order_type       IN CHAR,
+    p_cart_total       IN NUMBER,
+    p_voucher_id       IN NUMBER,
+    p_coin_used        IN NUMBER,
+    p_delivery_fee     OUT NUMBER,
+    p_voucher_discount OUT NUMBER,
+    p_coin_discount    OUT NUMBER,
+    p_final_amount     OUT NUMBER,
+    p_status           OUT VARCHAR2
+) AS
+    v_sub_count        NUMBER;
+    v_voucher_wallet_id NUMBER;
+    v_voucher_min      NUMBER(6,2);
+    v_voucher_max      NUMBER(6,2);
+    v_voucher_benefit  VARCHAR2(20);
+    v_voucher_dist     VARCHAR2(20);
+    v_voucher_limit    NUMBER(5);
+    v_wallet_id        NUMBER;
+    v_current_coins    NUMBER;
+
+BEGIN
+    p_status := 'SUCCESS';
+    p_delivery_fee := 0;
+    p_voucher_discount := 0;
+    p_coin_discount := 0;
+    p_final_amount := 0;
+
+    -- ==========================================================
+    -- 1. SUBSCRIPTION (Free Delivery)
+    -- ==========================================================
+    IF p_order_type = 'D' THEN
+        SELECT COUNT(*) INTO v_sub_count
+        FROM SUBSCRIPTION
+        WHERE customer_id = p_customer_id
+          AND status = 'Active'
+          AND SYSDATE BETWEEN start_date AND end_date;
+
+        IF v_sub_count > 0 THEN
+            p_delivery_fee := 0;
+            -- DBMS_OUTPUT.PUT_LINE('Subscriber perk: Free delivery!');
+        ELSE
+            p_delivery_fee := 5.00;
+        END IF;
+    END IF;
+
+    -- ==========================================================
+    -- 2. HANDLE VOUCHER (optional)
+    -- ==========================================================
+    IF p_voucher_id IS NOT NULL THEN
+        BEGIN
+            -- Check voucher exists in customer's wallet and is unused
+            SELECT vw.wallet_id, v.min_spend, v.max_amount, v.benefit_type, v.distribution_type, v.usage_limit
+            INTO v_voucher_wallet_id, v_voucher_min, v_voucher_max, v_voucher_benefit, v_voucher_dist, v_voucher_limit
+            FROM VOUCHER_WALLET vw
+            JOIN VOUCHER v ON v.voucher_id = vw.voucher_id
+            WHERE vw.customer_id = p_customer_id
+              AND vw.voucher_id = p_voucher_id
+              AND vw.is_used = 'N'
+              AND v.status = 'Active'
+              AND SYSDATE BETWEEN v.valid_start AND v.valid_end;
+
+            -- If it's a public voucher, verify the usage limit hasn't been exhausted
+            IF v_voucher_dist = 'Public' AND v_voucher_limit IS NOT NULL AND v_voucher_limit <= 0 THEN
+                p_status := 'Error: This public voucher has reached its maximum usage limit.';
+                RETURN;
+            END IF;
+
+            -- Check minimum spend
+            IF p_cart_total < v_voucher_min THEN
+                p_status := 'Error: Minimum spend of RM ' || TO_CHAR(v_voucher_min, 'FM9990.00') || ' not met for this voucher.';
+                RETURN;
+            END IF;
+
+            -- Calculate discount
+            IF v_voucher_benefit = 'Flat' THEN
+                p_voucher_discount := NVL(v_voucher_max, 0);
+            ELSIF v_voucher_benefit = 'Percentage' THEN
+                p_voucher_discount := p_cart_total * 0.10;
+                IF v_voucher_max IS NOT NULL AND p_voucher_discount > v_voucher_max THEN
+                    p_voucher_discount := v_voucher_max;
+                END IF;
+            ELSE
+                p_voucher_discount := NVL(v_voucher_max, 0);
+            END IF;
+
+            -- Note: Voucher will be marked as used by trg_after_payment_ins 
+            -- after the payment is successfully completed.
+
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                p_status := 'Error: Voucher not found, already used, or expired.';
+                RETURN;
+        END;
+    END IF;
+
+    -- ==========================================================
+    -- 3. HANDLE COINS (optional, 1 coin = RM 0.01)
+    -- ==========================================================
+    IF p_coin_used > 0 THEN
+        BEGIN
+            SELECT wallet_id, total_coins
+            INTO v_wallet_id, v_current_coins
+            FROM COIN_WALLET
+            WHERE customer_id = p_customer_id;
+
+            IF v_current_coins < p_coin_used THEN
+                p_status := 'Error: Insufficient coins. You have ' || v_current_coins || ' coins.';
+                RETURN;
+            END IF;
+
+            p_coin_discount := p_coin_used * 0.01;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                p_status := 'Error: Coin wallet not found.';
+                RETURN;
+        END;
+    END IF;
+
+    -- ==========================================================
+    -- 4. CALCULATE FINAL AMOUNT
+    -- ==========================================================
+    p_final_amount := p_cart_total + p_delivery_fee - p_voucher_discount - p_coin_discount;
+    IF p_final_amount < 0 THEN
+        p_final_amount := 0;
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        p_status := 'Error in prc_apply_discounts: ' || SQLERRM;
+END;
+/

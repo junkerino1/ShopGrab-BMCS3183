@@ -1,0 +1,47 @@
+-- ============================================================
+-- PACKAGE: App_Session
+-- Stores session state (customer_id, username) in memory
+-- for the duration of the Oracle session.
+-- Acts like a "cookie" / session variable.
+-- ============================================================
+CREATE OR REPLACE PACKAGE App_Session AS
+    PROCEDURE set_user(p_customer_id IN NUMBER, p_username IN VARCHAR2);
+    PROCEDURE clear_session;
+    FUNCTION  get_customer_id RETURN NUMBER;
+    FUNCTION  get_username RETURN VARCHAR2;
+    FUNCTION  is_logged_in RETURN BOOLEAN;
+END App_Session;
+/
+
+CREATE OR REPLACE PACKAGE BODY App_Session AS
+    g_customer_id  NUMBER       := NULL;
+    g_username     VARCHAR2(50) := NULL;
+
+    PROCEDURE set_user(p_customer_id IN NUMBER, p_username IN VARCHAR2) IS
+    BEGIN
+        g_customer_id := p_customer_id;
+        g_username    := p_username;
+    END;
+
+    PROCEDURE clear_session IS
+    BEGIN
+        g_customer_id := NULL;
+        g_username    := NULL;
+    END;
+
+    FUNCTION get_customer_id RETURN NUMBER IS
+    BEGIN
+        RETURN g_customer_id;
+    END;
+
+    FUNCTION get_username RETURN VARCHAR2 IS
+    BEGIN
+        RETURN g_username;
+    END;
+
+    FUNCTION is_logged_in RETURN BOOLEAN IS
+    BEGIN
+        RETURN g_customer_id IS NOT NULL;
+    END;
+END App_Session;
+/

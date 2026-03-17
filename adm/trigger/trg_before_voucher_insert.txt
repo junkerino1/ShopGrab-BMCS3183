@@ -1,0 +1,43 @@
+-- ============================================================
+-- TRIGGER: Before Voucher Wallet Insert
+-- Fires before a user claims a voucher (inserts into VOUCHER_WALLET).
+-- Prevents claiming if the voucher is expired, inactive, 
+-- or has reached its global usage limits.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_before_voucher_insert
+BEFORE INSERT ON VOUCHER_WALLET
+FOR EACH ROW
+DECLARE
+    v_status       VOUCHER.status%TYPE;
+    v_valid_start  VOUCHER.valid_start%TYPE;
+    v_valid_end    VOUCHER.valid_end%TYPE;
+    v_usage_limit  VOUCHER.usage_limit%TYPE;
+BEGIN
+    -- Retrieve voucher validity conditions
+    SELECT status, valid_start, valid_end, usage_limit
+    INTO v_status, v_valid_start, v_valid_end, v_usage_limit
+    FROM VOUCHER
+    WHERE voucher_id = :NEW.voucher_id;
+
+    -- 1. Check if the voucher is flagged as anything other than Active
+    IF v_status != 'Active' THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Voucher is no longer active and cannot be claimed.');
+    END IF;
+
+    -- 2. Check if current date is before start date
+    IF SYSDATE < v_valid_start THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Voucher promotion has not started yet.');
+    END IF;
+
+    -- 3. Check if current date has passed the end date
+    IF SYSDATE > v_valid_end THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Voucher has already expired.');
+    END IF;
+
+    -- 4. Check if a public/limited voucher has run out of global claims
+    IF v_usage_limit IS NOT NULL AND v_usage_limit <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20004, 'Voucher global usage limit has been reached.');
+    END IF;
+
+END;
+/

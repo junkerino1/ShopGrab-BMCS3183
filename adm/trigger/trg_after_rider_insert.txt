@@ -1,0 +1,14 @@
+-- ============================================================
+-- TRIGGER: After Rider Insert
+-- Fires after a new RIDER row is inserted.
+-- Increments rider_count in the PLATFORM the rider belongs to.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_after_rider_insert
+AFTER INSERT ON RIDER
+FOR EACH ROW
+BEGIN
+    UPDATE PLATFORM
+    SET rider_count = rider_count + 1
+    WHERE platform_id = :NEW.platform_id;
+END;
+/

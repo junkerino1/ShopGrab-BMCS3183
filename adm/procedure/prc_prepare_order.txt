@@ -1,0 +1,112 @@
+CREATE OR REPLACE PROCEDURE prc_prepare_order (
+    p_order_type       IN CHAR,
+    p_delivery_address IN VARCHAR2,
+    p_customer_id      OUT NUMBER,
+    p_username         OUT VARCHAR2,
+    p_restaurant_id    OUT NUMBER,
+    p_cart_total       OUT NUMBER,
+    p_delivery_addr    OUT VARCHAR2,
+    p_rider_id         OUT NUMBER,
+    p_platform_id      OUT NUMBER,
+    p_status           OUT VARCHAR2
+) AS
+    v_cart_count       NUMBER := 0;
+    v_restaurant_found BOOLEAN := FALSE;
+
+    CURSOR c_cart_summary IS
+        SELECT COUNT(*) AS cart_count, NVL(SUM(subtotal), 0) AS cart_total
+        FROM TEMP_CART;
+
+    CURSOR c_cart_restaurant IS
+        SELECT DISTINCT restaurant_id
+        FROM TEMP_CART
+        WHERE ROWNUM = 1;
+
+BEGIN
+    p_status := 'SUCCESS';
+    p_rider_id := NULL;
+    p_platform_id := NULL;
+    p_delivery_addr := NULL;
+
+    -- ==========================================================
+    -- 1. CHECK LOGIN
+    -- ==========================================================
+    p_customer_id := App_Session.get_customer_id;
+    p_username    := App_Session.get_username;
+
+    IF p_customer_id IS NULL THEN
+        p_status := 'Error: You must be logged in to checkout.';
+        RETURN;
+    END IF;
+
+    -- ==========================================================
+    -- 2. VALIDATE CART
+    -- ==========================================================
+    FOR cart_summary_rec IN c_cart_summary LOOP
+        v_cart_count := cart_summary_rec.cart_count;
+        p_cart_total := cart_summary_rec.cart_total;
+    END LOOP;
+
+    IF v_cart_count = 0 THEN
+        p_status := 'Error: Your cart is empty.';
+        RETURN;
+    END IF;
+
+    FOR restaurant_rec IN c_cart_restaurant LOOP
+        v_restaurant_found := TRUE;
+        p_restaurant_id    := restaurant_rec.restaurant_id;
+    END LOOP;
+
+    IF NOT v_restaurant_found THEN
+        p_status := 'Error: Unable to resolve the restaurant for the current cart.';
+        RETURN;
+    END IF;
+
+    -- ==========================================================
+    -- 3. VALIDATE ORDER TYPE
+    -- ==========================================================
+    IF p_order_type NOT IN ('D', 'P') THEN
+        p_status := 'Error: Invalid order type. Use D (Delivery) or P (Pickup).';
+        RETURN;
+    END IF;
+
+    IF p_order_type = 'D' THEN
+        -- Resolve delivery address
+        IF p_delivery_address IS NOT NULL THEN
+            p_delivery_addr := p_delivery_address;
+        ELSE
+            SELECT default_address
+            INTO p_delivery_addr
+            FROM CUSTOMER
+            WHERE customer_id = p_customer_id;
+
+            IF p_delivery_addr IS NULL THEN
+                p_status := 'Error: No delivery address provided and no default address on file.';
+                RETURN;
+            END IF;
+        END IF;
+
+        -- Auto-assign a random available rider from any platform
+        BEGIN
+            SELECT rider_id, platform_id 
+            INTO p_rider_id, p_platform_id
+            FROM (
+                SELECT rider_id, platform_id
+                FROM RIDER
+                WHERE status = 'Available'
+                ORDER BY DBMS_RANDOM.VALUE
+            )
+            WHERE ROWNUM = 1;
+
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                p_status := 'Error: No available riders right now.';
+                RETURN;
+        END;
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        p_status := 'Error in prc_prepare_order: ' || SQLERRM;
+END;
+/

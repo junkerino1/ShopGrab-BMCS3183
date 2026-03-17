@@ -1,0 +1,98 @@
+CREATE OR REPLACE PROCEDURE prc_add_to_cart (
+    p_item_id       IN NUMBER,
+    p_restaurant_id IN NUMBER,
+    p_quantity      IN NUMBER,
+    p_remark        IN VARCHAR2 DEFAULT NULL
+) AS
+    TYPE nested_cursor_typ IS REF CURSOR;
+
+    v_existing_cart_cursor nested_cursor_typ;
+    v_item_id              MENU_ITEM.item_id%TYPE;
+    v_item_name            MENU_ITEM.name%TYPE;
+    v_unit_price           MENU_ITEM.price%TYPE;
+    v_cart_item_id         TEMP_CART.cart_item_id%TYPE;
+    v_existing_qty         TEMP_CART.quantity%TYPE;
+    v_existing_remark      TEMP_CART.remark%TYPE;
+    v_subtotal             NUMBER(8,2);
+    v_new_cart_id          NUMBER;
+
+    CURSOR c_menu_item IS
+        SELECT m.item_id,
+               m.name,
+               m.price,
+               CURSOR (
+                   SELECT tc.cart_item_id, tc.quantity, tc.remark
+                   FROM TEMP_CART tc
+                   WHERE tc.item_id = m.item_id
+                   ORDER BY tc.cart_item_id
+               ) cart_info
+        FROM MENU_ITEM m
+        WHERE m.item_id = p_item_id
+          AND m.restaurant_id = p_restaurant_id
+          AND m.is_available = 'Y';
+
+    PROCEDURE close_nested_cursor(p_cursor IN OUT nested_cursor_typ) IS
+    BEGIN
+        IF p_cursor%ISOPEN THEN
+            CLOSE p_cursor;
+        END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            NULL;
+    END;
+BEGIN
+    OPEN c_menu_item;
+    LOOP
+        FETCH c_menu_item INTO v_item_id, v_item_name, v_unit_price, v_existing_cart_cursor;
+        EXIT WHEN c_menu_item%NOTFOUND;
+
+        FETCH v_existing_cart_cursor INTO v_cart_item_id, v_existing_qty, v_existing_remark;
+        IF v_existing_cart_cursor%FOUND THEN
+            v_subtotal     := v_unit_price * (v_existing_qty + p_quantity);
+
+            UPDATE TEMP_CART
+            SET quantity = v_existing_qty + p_quantity,
+                subtotal = v_subtotal,
+                remark   = NVL(p_remark, remark)
+            WHERE cart_item_id = v_cart_item_id;
+
+            DBMS_OUTPUT.PUT_LINE('------------------------------------------');
+            DBMS_OUTPUT.PUT_LINE('Cart updated: ' || v_item_name);
+            DBMS_OUTPUT.PUT_LINE('New Quantity : ' || (v_existing_qty + p_quantity));
+            DBMS_OUTPUT.PUT_LINE('New Subtotal : RM ' || TO_CHAR(v_subtotal, 'FM9999.00'));
+            DBMS_OUTPUT.PUT_LINE('------------------------------------------');
+            close_nested_cursor(v_existing_cart_cursor);
+            CLOSE c_menu_item;
+            RETURN;
+        END IF;
+        close_nested_cursor(v_existing_cart_cursor);
+
+        v_subtotal := v_unit_price * p_quantity;
+
+        SELECT NVL(MAX(cart_item_id), 0) + 1
+        INTO v_new_cart_id
+        FROM TEMP_CART;
+
+        INSERT INTO TEMP_CART (cart_item_id, item_id, restaurant_id, item_name, unit_price, quantity, subtotal, remark)
+        VALUES (v_new_cart_id, p_item_id, p_restaurant_id, v_item_name, v_unit_price, p_quantity, v_subtotal, p_remark);
+
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('Added to cart : ' || v_item_name);
+        DBMS_OUTPUT.PUT_LINE('Quantity      : ' || p_quantity);
+        DBMS_OUTPUT.PUT_LINE('Subtotal      : RM ' || TO_CHAR(v_subtotal, 'FM9999.00'));
+        IF p_remark IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('Remark        : ' || p_remark);
+        END IF;
+        DBMS_OUTPUT.PUT_LINE('------------------------------------------');
+        CLOSE c_menu_item;
+        RETURN;
+    END LOOP;
+    CLOSE c_menu_item;
+
+    DBMS_OUTPUT.PUT_LINE('Error: Item not found or unavailable.');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/

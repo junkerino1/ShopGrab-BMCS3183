@@ -1,0 +1,26 @@
+-- ============================================================
+-- TRIGGER: Before Customer Loyalty Update
+-- Fires before a record in C_LOYALTY is updated.
+-- Automatically updates the tier_id based on total_spent.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_before_loyalty_update
+BEFORE UPDATE OF total_spent ON C_LOYALTY
+FOR EACH ROW
+DECLARE
+    v_new_tier_id NUMBER;
+BEGIN
+    -- Determine new tier based on cumulative spend
+    SELECT tier_id INTO v_new_tier_id
+    FROM (
+        SELECT tier_id
+        FROM LOYALTY_TIER
+        WHERE min_total_spend <= :NEW.total_spent
+        ORDER BY min_total_spend DESC
+    )
+    WHERE ROWNUM = 1;
+
+    -- Set the new tier and update the last_updated timestamp
+    :NEW.tier_id := v_new_tier_id;
+    :NEW.last_updated := SYSDATE;
+END;
+/

@@ -1,0 +1,100 @@
+-- ============================================================
+-- PROCEDURE: Checkout (Cart → Order → Payment)
+-- Converts TEMP_CART into a CUST_ORDER + ORDER_DETAILS,
+-- creates a PAYMENT record, handles voucher + coin usage,
+-- awards coins, updates loyalty, then clears the cart.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_checkout (
+    p_order_type       IN CHAR,            -- 'D' = Delivery, 'P' = Pickup
+    p_payment_method   IN VARCHAR2,        -- e.g. 'Cash', 'Card', 'E-Wallet'
+    p_delivery_address IN VARCHAR2 DEFAULT NULL,  -- NULL = use default_address
+    p_voucher_id       IN NUMBER  DEFAULT NULL,  -- voucher_id from VOUCHER_WALLET
+    p_coin_used        IN NUMBER  DEFAULT 0       -- coins to redeem (1 coin = RM 0.01)
+) AS
+    v_customer_id      NUMBER;
+    v_username         VARCHAR2(50);
+    v_restaurant_id    NUMBER;
+    v_cart_total       NUMBER(8,2);
+    v_delivery_addr    VARCHAR2(255);
+    v_rider_id         NUMBER;
+    v_platform_id      NUMBER;
+    
+    v_delivery_fee     NUMBER(6,2);
+    v_voucher_discount NUMBER(8,2);
+    v_coin_discount    NUMBER(8,2);
+    v_final_amount     NUMBER(8,2);
+    v_order_id         NUMBER;
+    
+    v_status           VARCHAR2(1000);
+
+BEGIN
+    -- 1. Prepare Order
+    prc_prepare_order(
+        p_order_type, p_delivery_address,
+        v_customer_id, v_username, v_restaurant_id, v_cart_total,
+        v_delivery_addr, v_rider_id, v_platform_id,
+        v_status
+    );
+    
+    IF v_status != 'SUCCESS' THEN
+        DBMS_OUTPUT.PUT_LINE(v_status);
+        ROLLBACK;
+        RETURN;
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Prepare order status: ' || v_status);
+    END IF;
+
+    -- 2. Apply Discounts
+    prc_apply_discounts(
+        v_customer_id, p_order_type, v_cart_total, p_voucher_id, p_coin_used,
+        v_delivery_fee, v_voucher_discount, v_coin_discount, v_final_amount,
+        v_status
+    );
+    
+    IF v_status != 'SUCCESS' THEN
+        DBMS_OUTPUT.PUT_LINE(v_status);
+        ROLLBACK;
+        RETURN;
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Apply discount status: ' || v_status);
+    END IF;
+
+    -- 3. Finalize Order (creates order and details)
+    prc_finalize_order(
+        v_customer_id, p_order_type, v_restaurant_id, v_platform_id, 
+        v_delivery_addr, v_rider_id, p_voucher_id, p_coin_used, 
+        v_delivery_fee, v_order_id, v_status
+    );
+
+    IF v_status != 'SUCCESS' THEN
+        DBMS_OUTPUT.PUT_LINE(v_status);
+        ROLLBACK;
+        RETURN;
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Finalize order status: ' || v_status);
+    END IF;
+
+    -- 4. Create Payment
+    prc_create_payment(
+        v_order_id, v_final_amount, p_payment_method, v_status
+    );
+
+    IF v_status != 'SUCCESS' THEN
+        DBMS_OUTPUT.PUT_LINE(v_status);
+        ROLLBACK;
+        RETURN;
+    ELSE
+            DBMS_OUTPUT.PUT_LINE('Create payment status: ' || v_status);
+    END IF;
+    
+    -- 5. Print Receipt
+    prc_receipt(v_order_id);
+    
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error during checkout: ' || SQLERRM);
+END;
+/

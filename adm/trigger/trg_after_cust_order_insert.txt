@@ -1,0 +1,17 @@
+-- ============================================================
+-- TRIGGER: After Customer Order Insert
+-- Fires after a new record is inserted into CUST_ORDER.
+-- Automatically increments the ongoing_delivery count for
+-- the randomly assigned rider.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_after_cust_order_insert
+AFTER INSERT ON CUST_ORDER
+FOR EACH ROW
+BEGIN
+    IF :NEW.rider_id IS NOT NULL THEN
+        UPDATE RIDER
+        SET ongoing_delivery = NVL(ongoing_delivery, 0) + 1
+        WHERE rider_id = :NEW.rider_id;
+    END IF;
+END;
+/

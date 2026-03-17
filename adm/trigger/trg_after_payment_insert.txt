@@ -1,0 +1,99 @@
+-- ============================================================
+-- TRIGGER: After Payment Insert
+-- Fires after a PAYMENT row is inserted.
+-- Handles:
+--   1. Deduct coins used (COIN_WALLET + COIN_TRANSACTION)
+--   2. Award coins earned (1 coin per RM 1 spent)
+--   3. Update loyalty total_spent + auto tier upgrade
+--   4. Clear the session cart (TEMP_CART)
+--   5. Mark voucher as used if one was applied
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_after_payment_insert
+AFTER INSERT ON PAYMENT
+FOR EACH ROW
+DECLARE
+    v_customer_id   NUMBER;
+    v_coin_used     NUMBER;
+    v_voucher_id    NUMBER;
+    v_wallet_id     NUMBER;
+    v_coins_earned  NUMBER;
+BEGIN
+    -- ----------------------------------------------------------
+    -- Get order info
+    -- ----------------------------------------------------------
+    SELECT customer_id, coin_used, voucher_id
+    INTO v_customer_id, v_coin_used, v_voucher_id
+    FROM CUST_ORDER
+    WHERE order_id = :NEW.order_id;
+
+    -- Get customer's coin wallet
+    SELECT wallet_id
+    INTO v_wallet_id
+    FROM COIN_WALLET
+    WHERE customer_id = v_customer_id;
+    
+    UPDATE CUST_ORDER
+    SET payment_status = 'Paid'
+    WHERE order_id = :NEW.order_id;
+
+    -- ----------------------------------------------------------
+    -- 1. DEDUCT COINS (if customer used coins on this order)
+    -- ----------------------------------------------------------
+    IF v_coin_used > 0 THEN
+        UPDATE COIN_WALLET
+        SET total_coins = total_coins - v_coin_used
+        WHERE wallet_id = v_wallet_id;
+
+        INSERT INTO COIN_TRANSACTION (
+            transaction_id, wallet_id, order_id, coin_changes, transaction_date
+        ) VALUES (
+            transaction_seq.NEXTVAL, v_wallet_id, :NEW.order_id,
+            -v_coin_used, SYSDATE
+        );
+    END IF;
+
+    -- ----------------------------------------------------------
+    -- 2. EARN COINS (1 coin per RM 1 spent)
+    -- ----------------------------------------------------------
+    v_coins_earned := FLOOR(:NEW.amount_paid);
+
+    IF v_coins_earned > 0 THEN
+        UPDATE COIN_WALLET
+        SET total_coins = total_coins + v_coins_earned
+        WHERE wallet_id = v_wallet_id;
+
+        INSERT INTO COIN_TRANSACTION (
+            transaction_id, wallet_id, order_id, coin_changes, transaction_date
+        ) VALUES (
+            transaction_seq.NEXTVAL, v_wallet_id, :NEW.order_id,
+            v_coins_earned, SYSDATE
+        );
+    END IF;
+
+    -- ----------------------------------------------------------
+    -- 3. UPDATE LOYALTY (total_spent only)
+    -- ----------------------------------------------------------
+    UPDATE C_LOYALTY
+    SET total_spent = total_spent + :NEW.amount_paid
+    WHERE customer_id = v_customer_id;
+
+    -- ----------------------------------------------------------
+    -- 4. MARK VOUCHER AS USED
+    -- ----------------------------------------------------------
+    IF v_voucher_id IS NOT NULL THEN
+        UPDATE VOUCHER_WALLET
+        SET is_used = 'Y', 
+            used_at = SYSDATE
+        WHERE customer_id = v_customer_id
+          AND voucher_id = v_voucher_id
+          AND is_used = 'N'
+          AND ROWNUM = 1; -- Just in case they have multiple of the same voucher, use one
+    END IF;
+
+    -- ----------------------------------------------------------
+    -- 5. CLEAR CART
+    -- ----------------------------------------------------------
+    DELETE FROM TEMP_CART;
+
+END;
+/

@@ -1,0 +1,72 @@
+-- ============================================================
+-- PROCEDURE: Login Customer
+-- Validates username + password, then stores customer_id
+-- and username into App_Session for the current session.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_login_customer (
+    p_username     IN VARCHAR2,
+    p_password     IN VARCHAR2
+) AS
+    TYPE nested_cursor_typ IS REF CURSOR;
+
+    v_customer_cursor nested_cursor_typ;
+    v_customer_id     NUMBER;
+    v_username        VARCHAR2(50);
+    v_email           VARCHAR2(100);
+
+    CURSOR c_login_customer IS
+        SELECT c.username,
+               CURSOR (
+                   SELECT c2.customer_id, c2.email
+                   FROM CUSTOMER c2
+                   WHERE c2.customer_id = c.customer_id
+                     AND c2.password = p_password
+               ) customer_info
+        FROM CUSTOMER c
+        WHERE c.username = p_username;
+
+    PROCEDURE close_nested_cursor(p_cursor IN OUT nested_cursor_typ) IS
+    BEGIN
+        IF p_cursor%ISOPEN THEN
+            CLOSE p_cursor;
+        END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            NULL;
+    END;
+BEGIN
+    OPEN c_login_customer;
+    LOOP
+        FETCH c_login_customer INTO v_username, v_customer_cursor;
+        EXIT WHEN c_login_customer%NOTFOUND;
+
+        FETCH v_customer_cursor INTO v_customer_id, v_email;
+        IF v_customer_cursor%FOUND THEN
+            App_Session.set_user(v_customer_id, v_username);
+
+            DBMS_OUTPUT.PUT_LINE('===================================');
+            DBMS_OUTPUT.PUT_LINE('Login successful!');
+            DBMS_OUTPUT.PUT_LINE('===================================');
+            DBMS_OUTPUT.PUT_LINE('Welcome back, ' || v_username || '!');
+            DBMS_OUTPUT.PUT_LINE('Customer ID : ' || v_customer_id);
+            DBMS_OUTPUT.PUT_LINE('Email       : ' || v_email);
+            DBMS_OUTPUT.PUT_LINE('===================================');
+
+            close_nested_cursor(v_customer_cursor);
+            CLOSE c_login_customer;
+            RETURN;
+        END IF;
+
+        close_nested_cursor(v_customer_cursor);
+    END LOOP;
+    CLOSE c_login_customer;
+
+    App_Session.clear_session;
+    DBMS_OUTPUT.PUT_LINE('Error: Invalid username or password.');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        App_Session.clear_session;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/

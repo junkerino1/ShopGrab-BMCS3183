@@ -1,0 +1,57 @@
+-- ============================================================
+-- PROCEDURE: Add New Rider
+-- Registers a new rider under a given platform.
+-- trg_after_rider_insert fires after the INSERT and
+-- automatically increments rider_count in PLATFORM.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_add_rider (
+    p_name              IN VARCHAR2,
+    p_identification_no IN VARCHAR2,
+    p_phone_no          IN VARCHAR2,
+    p_platform_id       IN NUMBER,
+    p_license_plate     IN VARCHAR2
+) AS
+    v_rider_id      NUMBER;
+    v_platform_name PLATFORM.platform_name%TYPE;
+BEGIN
+    -- Validate platform exists
+    BEGIN
+        SELECT platform_name
+        INTO v_platform_name
+        FROM PLATFORM
+        WHERE platform_id = p_platform_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('Error: Platform ID ' || p_platform_id || ' not found.');
+            RETURN;
+    END;
+
+    -- Generate rider ID
+    SELECT rider_seq.NEXTVAL INTO v_rider_id FROM DUAL;
+
+    INSERT INTO RIDER (rider_id, name, identification_no, phone_no, platform_id, license_plate)
+    VALUES (v_rider_id, p_name, p_identification_no, p_phone_no, p_platform_id, p_license_plate);
+
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE('===================================');
+    DBMS_OUTPUT.PUT_LINE('Rider added successfully!');
+    DBMS_OUTPUT.PUT_LINE('===================================');
+    DBMS_OUTPUT.PUT_LINE('Rider ID      : ' || v_rider_id);
+    DBMS_OUTPUT.PUT_LINE('Name          : ' || p_name);
+    DBMS_OUTPUT.PUT_LINE('IC / ID No    : ' || p_identification_no);
+    DBMS_OUTPUT.PUT_LINE('Phone         : ' || p_phone_no);
+    DBMS_OUTPUT.PUT_LINE('Platform      : ' || v_platform_name);
+    DBMS_OUTPUT.PUT_LINE('License Plate : ' || p_license_plate);
+    DBMS_OUTPUT.PUT_LINE('Status        : Available');
+    DBMS_OUTPUT.PUT_LINE('===================================');
+
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: Identification number or license plate already exists.');
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/

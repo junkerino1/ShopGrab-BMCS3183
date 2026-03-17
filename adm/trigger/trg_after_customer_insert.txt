@@ -1,0 +1,24 @@
+CREATE OR REPLACE TRIGGER trg_after_customer_insert
+AFTER INSERT ON CUSTOMER
+FOR EACH ROW
+BEGIN
+    -- 1. Create Coin Wallet for the new customer
+    INSERT INTO COIN_WALLET (customer_id, total_coins)
+    SELECT :NEW.customer_id, 0 FROM DUAL
+    WHERE NOT EXISTS (
+        SELECT 1 FROM COIN_WALLET WHERE customer_id = :NEW.customer_id
+    );
+
+    -- 2. Create Loyalty Record for the new customer
+    INSERT INTO C_LOYALTY (customer_id, tier_id, total_spent)
+    SELECT :NEW.customer_id, 1, 0 FROM DUAL
+    WHERE NOT EXISTS (
+        SELECT 1 FROM C_LOYALTY WHERE customer_id = :NEW.customer_id
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Warning: Could not initialize defaults for Customer ' 
+                             || :NEW.customer_id || ': ' || SQLERRM);
+END;
+/

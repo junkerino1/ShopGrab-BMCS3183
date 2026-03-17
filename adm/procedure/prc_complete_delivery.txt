@@ -1,0 +1,50 @@
+-- ============================================================
+-- PROCEDURE: Complete Delivery
+-- Updates the order status to 'Completed' and decrements
+-- the ongoing_delivery count for the assigned rider.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_complete_delivery (
+    p_order_id IN NUMBER
+) AS
+    v_rider_id   NUMBER;
+    v_status     VARCHAR2(20);
+BEGIN
+    -- 1. Get the current status and rider of the order
+    BEGIN
+        SELECT order_status, rider_id
+        INTO v_status, v_rider_id
+        FROM CUST_ORDER
+        WHERE order_id = p_order_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('Error: Order ID ' || p_order_id || ' not found.');
+            RETURN;
+    END;
+
+    -- 2. Prevent completing an already completed/cancelled order
+    IF v_status IN ('Completed', 'Cancelled') THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Order is already ' || v_status || '.');
+        RETURN;
+    END IF;
+
+    -- 3. Update the order status to 'Completed'
+    UPDATE CUST_ORDER
+    SET order_status = 'Completed'
+    WHERE order_id = p_order_id;
+
+    -- 4. Decrement the rider's ongoing_delivery
+    IF v_rider_id IS NOT NULL THEN
+        UPDATE RIDER
+        SET ongoing_delivery = GREATEST(ongoing_delivery - 1, 0)
+        WHERE rider_id = v_rider_id;
+    END IF;
+
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Order ' || p_order_id || ' marked as Completed successfully.');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error in prc_complete_delivery: ' || SQLERRM);
+END;
+/

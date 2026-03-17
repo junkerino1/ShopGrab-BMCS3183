@@ -1,0 +1,90 @@
+-- ============================================================
+-- PROCEDURE 1: Register New Customer
+-- Inserts a new customer into the CUSTOMER table.
+-- COIN_WALLET and C_LOYALTY are auto-created by
+-- trg_after_customer_insert -> prc_init_customer_defaults.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_register_customer (
+    p_email        IN VARCHAR2,
+    p_username     IN VARCHAR2,
+    p_password     IN VARCHAR2,
+    p_phone        IN VARCHAR2,
+    p_address      IN VARCHAR2
+) AS
+    TYPE nested_cursor_typ IS REF CURSOR;
+
+    v_existing_customer_cursor nested_cursor_typ;
+    v_email                    CUSTOMER.email%TYPE;
+    v_username                 CUSTOMER.username%TYPE;
+    v_password                 CUSTOMER.password%TYPE;
+    v_phone                    CUSTOMER.phone_no%TYPE;
+    v_address                  CUSTOMER.default_address%TYPE;
+    v_existing_customer_id     CUSTOMER.customer_id%TYPE;
+    v_cust_id                  NUMBER;
+
+    CURSOR c_register_customer IS
+        SELECT p_email AS email,
+               p_username AS username,
+               p_password AS password,
+               p_phone AS phone_no,
+               p_address AS default_address,
+               CURSOR (
+                   SELECT c.customer_id
+                   FROM CUSTOMER c
+                   WHERE c.email = p_email
+                      OR c.username = p_username
+               ) existing_customer_info
+        FROM DUAL;
+
+    PROCEDURE close_nested_cursor(p_cursor IN OUT nested_cursor_typ) IS
+    BEGIN
+        IF p_cursor%ISOPEN THEN
+            CLOSE p_cursor;
+        END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            NULL;
+    END;
+BEGIN
+    OPEN c_register_customer;
+    LOOP
+        FETCH c_register_customer
+        INTO v_email, v_username, v_password, v_phone, v_address, v_existing_customer_cursor;
+        EXIT WHEN c_register_customer%NOTFOUND;
+
+        FETCH v_existing_customer_cursor INTO v_existing_customer_id;
+        IF v_existing_customer_cursor%FOUND THEN
+            close_nested_cursor(v_existing_customer_cursor);
+            CLOSE c_register_customer;
+            DBMS_OUTPUT.PUT_LINE('Error: Email or Username already exists.');
+            RETURN;
+        END IF;
+        close_nested_cursor(v_existing_customer_cursor);
+
+        INSERT INTO CUSTOMER (email, username, password, phone_no, default_address)
+        VALUES (v_email, v_username, v_password, v_phone, v_address)
+        RETURNING customer_id INTO v_cust_id;
+
+        COMMIT;
+
+        DBMS_OUTPUT.PUT_LINE('===================================');
+        DBMS_OUTPUT.PUT_LINE('Customer registered successfully!');
+        DBMS_OUTPUT.PUT_LINE('===================================');
+        DBMS_OUTPUT.PUT_LINE('Customer ID : ' || v_cust_id);
+        DBMS_OUTPUT.PUT_LINE('Username    : ' || v_username);
+        DBMS_OUTPUT.PUT_LINE('Email       : ' || v_email);
+        DBMS_OUTPUT.PUT_LINE('===================================');
+        CLOSE c_register_customer;
+        RETURN;
+    END LOOP;
+    CLOSE c_register_customer;
+
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: Email or Username already exists.');
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('An unexpected error occurred: ' || SQLERRM);
+END;
+/

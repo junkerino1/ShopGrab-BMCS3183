@@ -1,0 +1,59 @@
+CREATE OR REPLACE PROCEDURE prc_finalize_order (
+    p_customer_id      IN NUMBER,
+    p_order_type       IN CHAR,
+    p_restaurant_id    IN NUMBER,
+    p_platform_id      IN NUMBER,
+    p_delivery_address IN VARCHAR2,
+    p_rider_id         IN NUMBER,
+    p_voucher_id       IN NUMBER,
+    p_coin_used        IN NUMBER,
+    p_delivery_fee     IN NUMBER,
+    p_order_id         OUT NUMBER,
+    p_status           OUT VARCHAR2
+) AS
+    v_order_id NUMBER;
+
+    -- Cursor: cart items
+    CURSOR c_cart IS
+        SELECT item_id, item_name, unit_price, quantity, subtotal, remark
+        FROM TEMP_CART
+        ORDER BY cart_item_id;
+
+BEGIN
+    p_status := 'SUCCESS';
+
+    -- ==========================================================
+    -- 1. CREATE ORDER
+    -- ==========================================================
+    SELECT order_seq.NEXTVAL INTO v_order_id FROM DUAL;
+
+    INSERT INTO CUST_ORDER (
+        order_id, customer_id, restaurant_id, platform_id, rider_id,
+        order_datetime, voucher_id, coin_used, delivery_fee,
+        order_status, delivery_address, payment_status, order_type
+    ) VALUES (
+        v_order_id, p_customer_id, p_restaurant_id, p_platform_id, p_rider_id,
+        SYSDATE, p_voucher_id, p_coin_used, p_delivery_fee,
+        'Pending', p_delivery_address, 'Unpaid', p_order_type
+    );
+
+    -- ==========================================================
+    -- 2. CREATE ORDER DETAILS (from cart)
+    -- ==========================================================
+    FOR rec IN c_cart LOOP
+        INSERT INTO ORDER_DETAILS (
+            order_details_id, order_id, menu_item_id,
+            quantity, unit_price, remark
+        ) VALUES (
+            order_details_seq.NEXTVAL, v_order_id, rec.item_id,
+            rec.quantity, rec.unit_price, rec.remark
+        );
+    END LOOP;
+    
+    p_order_id := v_order_id;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        p_status := 'Error in prc_finalize_order: ' || SQLERRM;
+END;
+/

@@ -1,0 +1,34 @@
+-- ============================================================
+-- TRIGGER: After SUB_PAYMENT Insert
+-- When a new subscription payment is inserted, automatically
+-- calls prc_add_subscription for the customer linked to
+-- that subscription.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_after_sub_payment_insert
+AFTER INSERT ON SUB_PAYMENT
+FOR EACH ROW
+DECLARE
+    v_customer_id NUMBER;
+    v_active      NUMBER;
+BEGIN
+    -- Get the customer_id from the subscription
+    SELECT customer_id INTO v_customer_id
+    FROM SUBSCRIPTION
+    WHERE subscription_id = :NEW.subscription_id;
+
+    -- Only activate if subscription is not already active
+    SELECT COUNT(*) INTO v_active
+    FROM SUBSCRIPTION
+    WHERE subscription_id = :NEW.subscription_id
+      AND status = 'Active';
+
+    IF v_active = 0 THEN
+        -- Update the subscription to Active with fresh dates
+        UPDATE SUBSCRIPTION
+        SET status     = 'Active',
+            start_date = SYSDATE,
+            end_date   = SYSDATE + 30
+        WHERE subscription_id = :NEW.subscription_id;
+    END IF;
+END;
+/

@@ -1,0 +1,60 @@
+CREATE OR REPLACE PROCEDURE prc_claim_voucher (
+    p_customer_id   IN NUMBER,
+    p_voucher_code  IN VARCHAR2
+)
+IS
+    v_voucher_id     VOUCHER.voucher_id%TYPE;
+    v_already_owned  NUMBER;
+BEGIN
+    -- ==========================================================
+    -- 1. LOOKUP VOUCHER (Nested Block to trap NO_DATA_FOUND)
+    -- ==========================================================
+    BEGIN
+        SELECT voucher_id
+        INTO v_voucher_id
+        FROM VOUCHER
+        WHERE UPPER(voucher_code) = UPPER(p_voucher_code);
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            v_voucher_id := NULL; -- Set to NULL so we can handle it below
+    END;
+
+    -- Exit if the voucher code is invalid
+    IF v_voucher_id IS NULL THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Invalid voucher code.');
+        RETURN;
+    END IF;
+
+    -- ==========================================================
+    -- 2. PREVENT DUPLICATE CLAIMS
+    -- ==========================================================
+    SELECT COUNT(*)
+    INTO v_already_owned
+    FROM VOUCHER_WALLET
+    WHERE customer_id = p_customer_id
+      AND voucher_id = v_voucher_id
+      AND is_used = 'N';
+      
+    IF v_already_owned > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Error: You already have an active claim for this voucher in your wallet.');
+        RETURN;
+    END IF;
+
+    -- ==========================================================
+    -- 3. INSERT INTO WALLET
+    -- ==========================================================
+    -- Note: trg_before_vwallet_insert will handle expiration/stock checks
+    INSERT INTO VOUCHER_WALLET (customer_id, voucher_id, is_used)
+    VALUES (p_customer_id, v_voucher_id, 'N');
+
+    DBMS_OUTPUT.PUT_LINE('Success: Voucher claimed successfully and added to your wallet!');
+
+EXCEPTION
+    -- ==========================================================
+    -- 4. EXCEPTION HANDLING
+    -- ==========================================================
+    WHEN OTHERS THEN
+        -- REGEXP_REPLACE removes the "ORA-20XXX: " prefix from your trigger's error message
+        DBMS_OUTPUT.PUT_LINE('Failed: ' || REGEXP_REPLACE(SQLERRM, 'ORA-[0-9]+: ', ''));
+END;
+/

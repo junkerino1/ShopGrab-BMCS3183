@@ -1,0 +1,35 @@
+-- ============================================================
+-- TRIGGER: After Voucher Wallet Update
+-- Fires after a record in VOUCHER_WALLET is updated.
+-- If the voucher was successfully used (is_used changed from 'N' to 'Y'),
+-- check if it is a 'Public' voucher, and if so, decrement its usage_limit.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_after_voucher_update
+AFTER UPDATE OF is_used ON VOUCHER_WALLET
+FOR EACH ROW
+WHEN (NEW.is_used = 'Y' AND OLD.is_used = 'N')
+DECLARE
+    v_distribution VOUCHER.distribution_type%TYPE;
+    v_usage_limit  VOUCHER.usage_limit%TYPE;
+BEGIN
+    -- Retrieve voucher details
+    SELECT distribution_type, usage_limit
+    INTO v_distribution, v_usage_limit
+    FROM VOUCHER
+    WHERE voucher_id = :NEW.voucher_id;
+
+    -- If it's a Public voucher and has a valid usage limit, decrement it
+    IF v_distribution = 'Public' AND v_usage_limit IS NOT NULL AND v_usage_limit > 0 THEN
+        IF v_usage_limit - 1 = 0 THEN
+            UPDATE VOUCHER
+            SET usage_limit = usage_limit - 1,
+                status = 'Expired'
+            WHERE voucher_id = :NEW.voucher_id;
+        ELSE
+            UPDATE VOUCHER
+            SET usage_limit = usage_limit - 1
+            WHERE voucher_id = :NEW.voucher_id;
+        END IF;
+    END IF;
+END;
+/

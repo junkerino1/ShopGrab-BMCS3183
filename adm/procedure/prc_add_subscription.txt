@@ -1,0 +1,86 @@
+-- ============================================================
+-- PROCEDURE: Add Customer Subscription to Premium
+-- Creates a new SUBSCRIPTION record for the customer.
+-- Automatically sets end_date = SYSDATE + 30.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE prc_add_subscription (
+    p_customer_id IN NUMBER
+) AS
+    v_plan_id       NUMBER;
+    v_plan_name     SUB_PLAN.plan_name%TYPE;
+    v_plan_price    SUB_PLAN.price%TYPE;
+    v_existing      NUMBER;
+    v_sub_id        NUMBER;
+    v_new_start     DATE;
+    v_new_end       DATE;
+BEGIN
+    -- Check if customer exists
+    SELECT COUNT(*) INTO v_existing
+    FROM CUSTOMER WHERE customer_id = p_customer_id;
+
+    IF v_existing = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Customer ID ' || p_customer_id || ' not found.');
+        RETURN;
+    END IF;
+
+    -- Check if customer already has an active subscription to determine dates
+    SELECT COUNT(*) INTO v_existing
+    FROM SUBSCRIPTION
+    WHERE customer_id = p_customer_id
+      AND status = 'Active';
+
+    IF v_existing > 0 THEN
+        -- Find the maximum end date of current active subscriptions
+        SELECT MAX(end_date)
+        INTO v_new_start
+        FROM SUBSCRIPTION
+        WHERE customer_id = p_customer_id
+          AND status = 'Active';
+          
+        v_new_end := v_new_start + 30;
+    ELSE
+        v_new_start := SYSDATE;
+        v_new_end := SYSDATE + 30;
+    END IF;
+
+    -- Get Premium plan details
+    BEGIN
+        SELECT plan_id, plan_name, price
+        INTO v_plan_id, v_plan_name, v_plan_price
+        FROM SUB_PLAN
+        WHERE plan_name = 'Premium';
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('Error: Premium plan not found.');
+            RETURN;
+    END;
+
+    -- Insert subscription
+    INSERT INTO SUBSCRIPTION (customer_id, plan_id, start_date, end_date, status)
+    VALUES (p_customer_id, v_plan_id, v_new_start, v_new_end, 'Active')
+    RETURNING subscription_id INTO v_sub_id;
+
+    DBMS_OUTPUT.PUT_LINE('===================================');
+    DBMS_OUTPUT.PUT_LINE('Subscription created successfully!');
+    IF v_existing > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('(Period extended from existing plan)');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('===================================');
+    DBMS_OUTPUT.PUT_LINE('Subscription ID : ' || v_sub_id);
+    DBMS_OUTPUT.PUT_LINE('Customer ID     : ' || p_customer_id);
+    DBMS_OUTPUT.PUT_LINE('Plan            : ' || v_plan_name);
+    DBMS_OUTPUT.PUT_LINE('Price           : ' || TO_CHAR(v_plan_price, '$999.99'));
+    DBMS_OUTPUT.PUT_LINE('Start Date      : ' || TO_CHAR(v_new_start, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE('End Date        : ' || TO_CHAR(v_new_end, 'DD-MON-YYYY'));
+    DBMS_OUTPUT.PUT_LINE('===================================');
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+
+
+

@@ -1,0 +1,29 @@
+-- ============================================================
+-- TRIGGER: Before Insert on TEMP_CART
+-- If the new item is from a different restaurant than what
+-- is already in the cart, clear the cart first so the new
+-- item starts a fresh cart for the new restaurant.
+-- ============================================================
+CREATE OR REPLACE TRIGGER trg_before_cart_insert
+BEFORE INSERT ON TEMP_CART
+FOR EACH ROW
+DECLARE
+    v_cart_restaurant_id  NUMBER;
+BEGIN
+    -- Check if cart already has items from a different restaurant
+    BEGIN
+        SELECT DISTINCT restaurant_id
+        INTO v_cart_restaurant_id
+        FROM TEMP_CART
+        WHERE ROWNUM = 1;
+
+        IF v_cart_restaurant_id != :NEW.restaurant_id THEN
+            DELETE FROM TEMP_CART;
+            DBMS_OUTPUT.PUT_LINE('Note: Previous cart from another restaurant has been cleared.');
+        END IF;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            NULL; -- Cart is empty, nothing to check
+    END;
+END;
+/
