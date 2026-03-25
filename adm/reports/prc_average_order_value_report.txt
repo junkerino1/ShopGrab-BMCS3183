@@ -1,0 +1,136 @@
+CREATE OR REPLACE PROCEDURE prc_average_order_value_report AS
+    -- Outer cursor: Loop through distinct months when completed orders occurred
+    CURSOR cur_months IS
+        SELECT DISTINCT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str
+        FROM CUST_ORDER
+        WHERE order_status = 'Completed'
+        ORDER BY month_str;
+
+    -- Inner cursor: Loop through each loyalty tier mapping
+    CURSOR cur_tiers IS
+        SELECT tier_id, tier_name
+        FROM LOYALTY_TIER
+        ORDER BY 
+            CASE tier_name 
+                WHEN 'Diamond' THEN 1 
+                WHEN 'Gold'    THEN 2 
+                WHEN 'Silver'  THEN 3 
+                ELSE 4
+            END;
+
+    -- Innermost query data logic (executed per month and per tier)
+    CURSOR cur_tier_stats (p_tier_id NUMBER, p_month VARCHAR2) IS
+        SELECT 
+            COUNT(DISTINCT o.order_id) AS total_orders,
+            NVL(SUM(p.amount_paid), 0) AS total_revenue
+        FROM CUST_ORDER o
+        JOIN PAYMENT p ON o.order_id = p.order_id
+        JOIN C_LOYALTY cl ON cl.customer_id = o.customer_id
+        WHERE cl.tier_id = p_tier_id
+          AND o.order_status = 'Completed'
+          AND TO_CHAR(o.order_datetime, 'YYYY-MM') = p_month;
+
+    v_month_rec   cur_months%ROWTYPE;
+    v_tier_rec    cur_tiers%ROWTYPE;
+    v_stats_rec   cur_tier_stats%ROWTYPE;
+    
+    v_avg_value   NUMBER(10,2);
+    v_monthly_orders  NUMBER;
+    v_monthly_revenue NUMBER(12,2);
+    v_grand_orders NUMBER := 0;
+    v_grand_revenue NUMBER(12,2) := 0;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    DBMS_OUTPUT.PUT_LINE('           AVERAGE ORDER VALUE BY SEGMENT (MONTHLY)');
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+
+    OPEN cur_months;
+    LOOP
+        FETCH cur_months INTO v_month_rec;
+        EXIT WHEN cur_months%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+        DBMS_OUTPUT.PUT_LINE('MONTH: ' || v_month_rec.month_str);
+        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('TIER NAME',       20, ' ') || ' | ' ||
+            LPAD('TOTAL ORDERS',    15, ' ') || ' | ' ||
+            LPAD('TOTAL REVENUE',   18, ' ') || ' | ' ||
+            LPAD('AVG ORDER VALUE', 18, ' ')
+        );
+        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+
+        v_monthly_orders := 0;
+        v_monthly_revenue := 0;
+
+        OPEN cur_tiers;
+        LOOP
+            FETCH cur_tiers INTO v_tier_rec;
+            EXIT WHEN cur_tiers%NOTFOUND;
+
+            OPEN cur_tier_stats(v_tier_rec.tier_id, v_month_rec.month_str);
+            FETCH cur_tier_stats INTO v_stats_rec;
+            CLOSE cur_tier_stats;
+
+            -- Calculate average order value safely
+            IF v_stats_rec.total_orders > 0 THEN
+                v_avg_value := TRUNC(v_stats_rec.total_revenue / v_stats_rec.total_orders, 2);
+            ELSE
+                v_avg_value := 0;
+            END IF;
+
+            -- Print row using variables
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(v_tier_rec.tier_name,                  20, ' ') || ' | ' ||
+                LPAD(v_stats_rec.total_orders,              15, ' ') || ' | ' ||
+                LPAD('RM ' || TO_CHAR(v_stats_rec.total_revenue, 'FM999,990.00'), 18, ' ') || ' | ' ||
+                LPAD('RM ' || TO_CHAR(v_avg_value, 'FM999,990.00'),               18, ' ')
+            );
+
+            -- Add up monthly totals
+            v_monthly_orders := v_monthly_orders + v_stats_rec.total_orders;
+            v_monthly_revenue := v_monthly_revenue + v_stats_rec.total_revenue;
+
+        END LOOP;
+        CLOSE cur_tiers;
+
+        -- Print Monthly Summary
+        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+        IF v_monthly_orders > 0 THEN
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD('MONTHLY TOTAL',                           20, ' ') || ' | ' ||
+                LPAD(v_monthly_orders,                         15, ' ') || ' | ' ||
+                LPAD('RM ' || TO_CHAR(v_monthly_revenue, 'FM999,990.00'), 18, ' ') || ' | ' ||
+                LPAD('RM ' || TO_CHAR(v_monthly_revenue / v_monthly_orders, 'FM999,990.00'), 18, ' ')
+            );
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('No completed orders found for this month.');
+        END IF;
+        DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+
+        -- Add up grand totals
+        v_grand_orders := v_grand_orders + v_monthly_orders;
+        v_grand_revenue := v_grand_revenue + v_monthly_revenue;
+
+    END LOOP;
+    CLOSE cur_months;
+    
+    -- Print Grand Average
+    DBMS_OUTPUT.PUT_LINE(CHR(10));
+    IF v_grand_orders > 0 THEN
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('GRAND OVERALL',                        20, ' ') || ' | ' ||
+            LPAD(v_grand_orders,                         15, ' ') || ' | ' ||
+            LPAD('RM ' || TO_CHAR(v_grand_revenue, 'FM999,990.00'), 18, ' ') || ' | ' ||
+            LPAD('RM ' || TO_CHAR(v_grand_revenue / v_grand_orders, 'FM999,990.00'), 18, ' ')
+        );
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('No completed orders found across all data.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    DBMS_OUTPUT.PUT_LINE('End of Report.');
+
+END prc_average_order_value_report;
+/

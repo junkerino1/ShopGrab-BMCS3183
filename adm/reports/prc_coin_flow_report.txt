@@ -1,0 +1,107 @@
+CREATE OR REPLACE PROCEDURE prc_coin_flow_report AS
+    -- Outer cursor: Loop through distinct months present in either transactions or orders
+    CURSOR c_months IS
+        SELECT DISTINCT month_str FROM (
+            SELECT TO_CHAR(transaction_date, 'YYYY-MM') AS month_str FROM COIN_TRANSACTION
+            UNION
+            SELECT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str FROM CUST_ORDER
+        )
+        ORDER BY month_str;
+        
+    -- Inner cursor: Calculate issued vs redeemed per customer segment (loyalty tier) for a given month
+    CURSOR c_segments (p_month VARCHAR2) IS
+        WITH Monthly_Issued AS (
+            SELECT cw.customer_id, SUM(ct.coin_changes) AS coins_issued
+            FROM COIN_TRANSACTION ct
+            JOIN COIN_WALLET cw ON ct.wallet_id = cw.wallet_id
+            WHERE ct.coin_changes > 0
+              AND TO_CHAR(ct.transaction_date, 'YYYY-MM') = p_month
+            GROUP BY cw.customer_id
+        ),
+        Monthly_Redeemed AS (
+            SELECT customer_id, SUM(coin_used) AS coins_redeemed
+            FROM CUST_ORDER
+            WHERE coin_used > 0
+              AND TO_CHAR(order_datetime, 'YYYY-MM') = p_month
+            GROUP BY customer_id
+        )
+        SELECT 
+            lt.tier_name AS segment_name,
+            NVL(SUM(i.coins_issued), 0) AS total_issued,
+            NVL(SUM(r.coins_redeemed), 0) AS total_redeemed
+        FROM LOYALTY_TIER lt
+        LEFT JOIN C_LOYALTY cl ON lt.tier_id = cl.tier_id
+        LEFT JOIN CUSTOMER c ON cl.customer_id = c.customer_id
+        LEFT JOIN Monthly_Issued i ON c.customer_id = i.customer_id
+        LEFT JOIN Monthly_Redeemed r ON c.customer_id = r.customer_id
+        GROUP BY lt.tier_name, lt.tier_id
+        ORDER BY lt.tier_id DESC;
+        
+    v_month_rec   c_months%ROWTYPE;
+    v_seg_rec     c_segments%ROWTYPE;
+    v_total_iss   NUMBER;
+    v_total_red   NUMBER;
+    v_found_data  BOOLEAN;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    DBMS_OUTPUT.PUT_LINE('                   MONTHLY COIN FLOW REPORT');
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    
+    OPEN c_months;
+    LOOP
+        FETCH c_months INTO v_month_rec;
+        EXIT WHEN c_months%NOTFOUND;
+        
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+        DBMS_OUTPUT.PUT_LINE('MONTH: ' || v_month_rec.month_str);
+        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('CUSTOMER SEGMENT',   25, ' ') || ' | ' ||
+            LPAD('COINS ISSUED',       15, ' ') || ' | ' ||
+            LPAD('COINS REDEEMED',     15, ' ') || ' | ' ||
+            LPAD('NET BALANCE',        15, ' ')
+        );
+        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+        
+        v_total_iss := 0;
+        v_total_red := 0;
+        v_found_data := FALSE;
+        
+        OPEN c_segments(v_month_rec.month_str);
+        LOOP
+            FETCH c_segments INTO v_seg_rec;
+            EXIT WHEN c_segments%NOTFOUND;
+            
+            v_found_data := TRUE;
+            v_total_iss := v_total_iss + v_seg_rec.total_issued;
+            v_total_red := v_total_red + v_seg_rec.total_redeemed;
+            
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(v_seg_rec.segment_name,             25, ' ') || ' | ' ||
+                LPAD(v_seg_rec.total_issued,             15, ' ') || ' | ' ||
+                LPAD(v_seg_rec.total_redeemed,           15, ' ') || ' | ' ||
+                LPAD(v_seg_rec.total_issued - v_seg_rec.total_redeemed, 15, ' ')
+            );
+        END LOOP;
+        CLOSE c_segments;
+        
+        IF NOT v_found_data THEN
+            DBMS_OUTPUT.PUT_LINE('No coin activity recorded for this month.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD('MONTHLY TOTAL',                    25, ' ') || ' | ' ||
+                LPAD(v_total_iss,                        15, ' ') || ' | ' ||
+                LPAD(v_total_red,                        15, ' ') || ' | ' ||
+                LPAD(v_total_iss - v_total_red,          15, ' ')
+            );
+        END IF;
+        
+        DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    END LOOP;
+    CLOSE c_months;
+    
+    DBMS_OUTPUT.PUT_LINE('End of Report.');
+END prc_coin_flow_report;
+/

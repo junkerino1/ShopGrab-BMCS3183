@@ -2,20 +2,26 @@
 -- This will create a new user 'shopgrab' with DBA privileges, allowing you 
 -- to execute the comprehensive test script without permission issues.
 DROP USER shopgrab CASCADE;
-CREATE USER shopgrab IDENTIFIED BY Junk#0512;
+CREATE USER shopgrab IDENTIFIED BY pass6969;
 GRANT DBA TO shopgrab;
 GRANT CREATE SESSION TO shopgrab;
 
-============================================================
-  COMPREHENSIVE TEST SCRIPT & DEMO — Food Delivery System
-  Optimized for SQL*Plus v11.2
-============================================================
+-- Then, connect to the 'shopgrab' user and test the script below.   
+CONNECT
+username: shopgrab
+password: pass6969
 
 -- =========================================================
 -- INITIALIZATION SEQUENCE
 -- =========================================================
 -- Run these commands strictly in this order to set up your test environment.
 -- The tables and dummy data have been segregated by dependency levels.
+
+-- Configure SQL*Plus output for optimal viewing
+SET SERVEROUTPUT ON
+SET LINESIZE 120
+SET PAGESIZE 100
+SET DEFINE OFF
 
 @create_table.sql
 @setup.sql
@@ -25,10 +31,7 @@ GRANT CREATE SESSION TO shopgrab;
 @lv3_table.sql
 @lv4_table.sql
 
--- Configure SQL*Plus output for optimal viewing
-SET SERVEROUTPUT ON
-SET LINESIZE 120
-SET PAGESIZE 100
+
 
 -- =========================================================
 -- 1. REGISTER NEW CUSTOMER
@@ -141,7 +144,7 @@ WHERE ROWNUM <= 2;
 --   -> Blocks items from different restaurants being mixed.
 
 -- Add from Burger King (restaurant_id = 1)
-EXEC prc_add_to_cart(1, 1, 2, 'Extra spicy');
+EXEC prc_add_to_cart(1, 1, 2);
 
 -- Test trg_before_cart_insert block: Attempt Add from Seoul Garden (restaurant_id = 2)
 EXEC prc_add_to_cart(6, 2, 1);
@@ -247,6 +250,43 @@ SELECT platform_id, platform_name, rider_count FROM PLATFORM WHERE platform_id =
 
 -- Show the new rider row and default initialization details
 SELECT rider_id, name, status, ongoing_delivery FROM RIDER WHERE identification_no = '880101-14-1234';
+
+
+-- =========================================================
+-- 10. GENERATE ANALYTICAL REPORTS
+-- =========================================================
+
+-- 10A. Average Order Value Report
+EXEC prc_average_order_value_report;
+
+-- 10B. Monthly Coin Flow Report 
+EXEC prc_coin_flow_report;
+
+-- 10C. Coin Transaction History (Specific to logged in user)
+EXEC prc_coin_transaction_history(App_Session.get_customer_id);
+
+-- 10D. Customer Retention Report (Inactivity risk analysis)
+EXEC prc_customer_retention_report;
+
+-- 10E. Monthly Restaurant Sales Report 
+EXEC prc_monthly_restaurant_sales;
+
+-- 10F. Rider Current Delivery Status 
+EXEC prc_rider_current_delivery;
+EXEC prc_rider_current_delivery(10);
+
+-- 10G. Rider Delivery History Report
+EXEC prc_rider_delivery;
+
+-- 10H. Subscription Countdown Report
+EXEC prc_sub_countdown_report;
+
+-- 10I. Voucher Countdown Report
+EXEC prc_voucher_countdown_report;
+
+-- 10J. Voucher Redemption Report 
+EXEC prc_voucher_redemption_report;
+
 
 -- =========================================================
 -- END OF DEMO

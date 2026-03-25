@@ -97,8 +97,14 @@ VALUES (7, 9.99, 'Online Banking', 'Completed');
 INSERT INTO SUB_PAYMENT (subscription_id, amount, payment_method, payment_status)
 VALUES (8, 9.99, 'E-Wallet', 'Completed');
 
--- 16. VOUCHER (2 vouchers)
+-- 16. VOUCHER (5 vouchers)
 INSERT INTO VOUCHER (voucher_code, min_spend, max_amount, category_id, restaurant_id, voucher_type, distribution_type, benefit_type, valid_start, valid_end, usage_limit, status)
 VALUES ('NEWUSER10', 0.00, 10.00, NULL, NULL, 'Fixed', 'Public', 'Meal', SYSDATE, SYSDATE + 90, 100, 'Active');
 INSERT INTO VOUCHER (voucher_code, min_spend, max_amount, category_id, restaurant_id, voucher_type, distribution_type, benefit_type, valid_start, valid_end, usage_limit, status)
 VALUES ('RM5DEAL', 15.00, 5.00, NULL, NULL, 'Fixed', 'Public', 'Meal', SYSDATE, SYSDATE + 30, 100, 'Active');
+INSERT INTO VOUCHER (voucher_code, min_spend, max_amount, category_id, restaurant_id, voucher_type, distribution_type, benefit_type, valid_start, valid_end, usage_limit, status)
+VALUES ('HURRY3', 10.00, 3.00, NULL, NULL, 'Fixed', 'Public', 'Meal', SYSDATE, SYSDATE + 3, 50, 'Active');
+INSERT INTO VOUCHER (voucher_code, min_spend, max_amount, category_id, restaurant_id, voucher_type, distribution_type, benefit_type, valid_start, valid_end, usage_limit, status)
+VALUES ('MIDWEEK5', 20.00, 5.00, NULL, NULL, 'Fixed', 'Public', 'Meal', SYSDATE, SYSDATE + 5, 50, 'Active');
+INSERT INTO VOUCHER (voucher_code, min_spend, max_amount, category_id, restaurant_id, voucher_type, distribution_type, benefit_type, valid_start, valid_end, usage_limit, status)
+VALUES ('WEEKEND10', 30.00, 10.00, NULL, NULL, 'Fixed', 'Public', 'Meal', SYSDATE, SYSDATE + 7, 50, 'Active');

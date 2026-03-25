@@ -12,6 +12,7 @@ DECLARE
     v_valid_start  VOUCHER.valid_start%TYPE;
     v_valid_end    VOUCHER.valid_end%TYPE;
     v_usage_limit  VOUCHER.usage_limit%TYPE;
+    v_existing_count NUMBER;
 BEGIN
     -- Retrieve voucher validity conditions
     SELECT status, valid_start, valid_end, usage_limit
@@ -37,6 +38,17 @@ BEGIN
     -- 4. Check if a public/limited voucher has run out of global claims
     IF v_usage_limit IS NOT NULL AND v_usage_limit <= 0 THEN
         RAISE_APPLICATION_ERROR(-20004, 'Voucher global usage limit has been reached.');
+    END IF;
+
+    -- 5. Check if the user has already claimed this voucher
+    SELECT COUNT(*)
+    INTO v_existing_count
+    FROM VOUCHER_WALLET
+    WHERE customer_id = :NEW.customer_id
+      AND voucher_id = :NEW.voucher_id;
+
+    IF v_existing_count > 0 THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Customer has already claimed this voucher.');
     END IF;
 
 END;

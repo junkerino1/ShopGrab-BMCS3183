@@ -55,6 +55,11 @@ EXCEPTION
     -- ==========================================================
     WHEN OTHERS THEN
         -- REGEXP_REPLACE removes the "ORA-20XXX: " prefix from your trigger's error message
-        DBMS_OUTPUT.PUT_LINE('Failed: ' || REGEXP_REPLACE(SQLERRM, 'ORA-[0-9]+: ', ''));
+        DBMS_OUTPUT.PUT_LINE('Failed: ' || REGEXP_REPLACE(
+                SUBSTR(SQLERRM, 1, INSTR(SQLERRM || CHR(10), CHR(10)) - 1), 
+                '^ORA-[0-9]+: ', 
+                ''
+            )
+        );
 END;
 /

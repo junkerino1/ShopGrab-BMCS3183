@@ -22,26 +22,26 @@ INSERT INTO C_LOYALTY (customer_id, tier_id, total_spent) VALUES (19, 1, 180.00)
 INSERT INTO C_LOYALTY (customer_id, tier_id, total_spent) VALUES (20, 1, 400.00);
 
 -- 8. COIN_WALLET (20 customers)
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (1, 500);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (2, 1200);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (3, 2500);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (4, 150);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (5, 400);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (6, 900);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (7, 80);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (8, 600);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (9, 1400);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (10, 3000);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (11, 200);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (12, 350);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (13, 1000);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (14, 100);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (15, 550);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (16, 2200);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (17, 50);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (18, 1100);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (19, 370);
-INSERT INTO COIN_WALLET (customer_id, total_coins) VALUES (20, 800);
+UPDATE COIN_WALLET SET total_coins = 500  WHERE customer_id = 1;
+UPDATE COIN_WALLET SET total_coins = 1200 WHERE customer_id = 2;
+UPDATE COIN_WALLET SET total_coins = 2500 WHERE customer_id = 3;
+UPDATE COIN_WALLET SET total_coins = 150  WHERE customer_id = 4;
+UPDATE COIN_WALLET SET total_coins = 400  WHERE customer_id = 5;
+UPDATE COIN_WALLET SET total_coins = 900  WHERE customer_id = 6;
+UPDATE COIN_WALLET SET total_coins = 80   WHERE customer_id = 7;
+UPDATE COIN_WALLET SET total_coins = 600  WHERE customer_id = 8;
+UPDATE COIN_WALLET SET total_coins = 1400 WHERE customer_id = 9;
+UPDATE COIN_WALLET SET total_coins = 3000 WHERE customer_id = 10;
+UPDATE COIN_WALLET SET total_coins = 200  WHERE customer_id = 11;
+UPDATE COIN_WALLET SET total_coins = 350  WHERE customer_id = 12;
+UPDATE COIN_WALLET SET total_coins = 1000 WHERE customer_id = 13;
+UPDATE COIN_WALLET SET total_coins = 100  WHERE customer_id = 14;
+UPDATE COIN_WALLET SET total_coins = 550  WHERE customer_id = 15;
+UPDATE COIN_WALLET SET total_coins = 2200 WHERE customer_id = 16;
+UPDATE COIN_WALLET SET total_coins = 50   WHERE customer_id = 17;
+UPDATE COIN_WALLET SET total_coins = 1100 WHERE customer_id = 18;
+UPDATE COIN_WALLET SET total_coins = 370  WHERE customer_id = 19;
+UPDATE COIN_WALLET SET total_coins = 800  WHERE customer_id = 20;
 
 -- 9. L_BENEFIT
 INSERT INTO L_BENEFIT (tier_id, benefit_type, benefit_value, description)
@@ -115,3 +115,5 @@ INSERT INTO SUBSCRIPTION (customer_id, plan_id, start_date, end_date, status)
 VALUES (16, 1, SYSDATE, SYSDATE + 30, 'Active');
 INSERT INTO SUBSCRIPTION (customer_id, plan_id, start_date, end_date, status)
 VALUES (18, 1, SYSDATE, SYSDATE + 30, 'Active');
+
+COMMIT;

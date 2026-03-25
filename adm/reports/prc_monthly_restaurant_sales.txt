@@ -1,0 +1,83 @@
+CREATE OR REPLACE PROCEDURE prc_monthly_restaurant_sales AS
+
+    -- --------------------------------------------------------
+    -- OUTER CURSOR: Find distinct months where completed sales occurred
+    -- --------------------------------------------------------
+    CURSOR cur_months IS
+        SELECT DISTINCT TO_CHAR(o.order_datetime, 'YYYY-MM') AS month_str
+        FROM CUST_ORDER o
+        JOIN PAYMENT p ON o.order_id = p.order_id
+        WHERE o.order_status = 'Completed'
+          AND p.payment_status = 'Completed'
+        ORDER BY month_str DESC;
+
+    -- --------------------------------------------------------
+    -- INNER CURSOR: Calculate total sales per restaurant in a specific month
+    -- --------------------------------------------------------
+    CURSOR cur_sales (p_month VARCHAR2) IS
+        SELECT 
+            r.restaurant_id, 
+            r.name AS restaurant_name, 
+            COUNT(o.order_id) AS total_orders,
+            SUM(p.amount_paid) AS total_sales
+        FROM RESTAURANT r
+        JOIN CUST_ORDER o ON r.restaurant_id = o.restaurant_id
+        JOIN PAYMENT p ON o.order_id = p.order_id
+        WHERE TO_CHAR(o.order_datetime, 'YYYY-MM') = p_month
+          AND o.order_status = 'Completed'
+          AND p.payment_status = 'Completed'
+        GROUP BY r.restaurant_id, r.name
+        ORDER BY total_sales DESC, r.name ASC;
+
+    v_has_data BOOLEAN;
+    v_month_total NUMBER;
+    v_grand_total NUMBER := 0;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                       MONTHLY RESTAURANT SALES REPORT');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    FOR rec_m IN cur_months LOOP
+        DBMS_OUTPUT.PUT_LINE('MONTH: ' || rec_m.month_str);
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('REST ID', 10) || ' | ' ||
+            RPAD('RESTAURANT NAME', 30) || ' | ' ||
+            RPAD('TOTAL ORDERS', 15) || ' | ' ||
+            'TOTAL SALES (RM)'
+        );
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+
+        v_has_data := FALSE;
+        v_month_total := 0;
+
+        FOR rec_s IN cur_sales(rec_m.month_str) LOOP
+            v_has_data := TRUE;
+            v_month_total := v_month_total + rec_s.total_sales;
+            
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec_s.restaurant_id, 10) || ' | ' ||
+                RPAD(rec_s.restaurant_name, 30) || ' | ' ||
+                RPAD(rec_s.total_orders, 15) || ' | ' ||
+                TO_CHAR(rec_s.total_sales, 'FM999,999.00')
+            );
+        END LOOP;
+
+        IF NOT v_has_data THEN
+            DBMS_OUTPUT.PUT_LINE('No sales recorded for this month.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+            DBMS_OUTPUT.PUT_LINE('MONTHLY SUBTOTAL: RM ' || TO_CHAR(v_month_total, 'FM999,999.00'));
+        END IF;
+
+        v_grand_total := v_grand_total + v_month_total;
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('GRAND TOTAL (ALL MONTHS): RM ' || TO_CHAR(v_grand_total, 'FM9,999,999.00'));
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+END prc_monthly_restaurant_sales;
+/

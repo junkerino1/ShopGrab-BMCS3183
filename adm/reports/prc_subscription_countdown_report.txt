@@ -1,0 +1,88 @@
+CREATE OR REPLACE PROCEDURE prc_sub_countdown_report AS
+
+    v_current_date DATE := TO_DATE('2026-04-15', 'YYYY-MM-DD'); -- Change this to test (e.g., TO_DATE('2024-05-10', 'YYYY-MM-DD'))
+
+    -- Outer Cursor: Find all subscription plans that have expiring subscriptions within 7 days
+    CURSOR cur_plans IS
+        SELECT DISTINCT sp.plan_id, sp.plan_name
+        FROM SUBSCRIPTION s
+        JOIN SUB_PLAN sp ON s.plan_id = sp.plan_id
+        WHERE s.status = 'Active'
+          AND s.end_date BETWEEN v_current_date AND v_current_date + 7
+        ORDER BY sp.plan_name;
+
+    -- Inner Cursor: Get the specific users whose subscriptions are expiring under that plan
+    CURSOR cur_subs (p_plan_id NUMBER) IS
+        SELECT
+            c.customer_id,
+            c.username,
+            c.email,
+            ROUND(s.end_date - v_current_date) AS days_remaining
+        FROM CUSTOMER c
+        JOIN SUBSCRIPTION s ON c.customer_id = s.customer_id
+        WHERE s.status = 'Active'
+          AND s.plan_id = p_plan_id
+          AND s.end_date BETWEEN v_current_date AND v_current_date + 7
+        ORDER BY s.end_date ASC;
+
+    v_plan_rec     cur_plans%ROWTYPE;
+    v_sub_rec      cur_subs%ROWTYPE;
+    v_has_data     BOOLEAN;
+    v_plan_total   NUMBER;
+    v_grand_total  NUMBER := 0;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                 SUBSCRIPTIONS EXPIRING WITHIN 7 DAYS (BY PLAN)');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    OPEN cur_plans;
+    LOOP
+        FETCH cur_plans INTO v_plan_rec;
+        EXIT WHEN cur_plans%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+        DBMS_OUTPUT.PUT_LINE('PLAN: ' || v_plan_rec.plan_name);
+        DBMS_OUTPUT.PUT_LINE(RPAD('User ID', 10) || ' | ' || RPAD('Name', 25) || ' | ' || RPAD('Email', 30) || ' | ' || 'Days Left');
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+
+        v_has_data := FALSE;
+        v_plan_total := 0;
+
+        OPEN cur_subs(v_plan_rec.plan_id);
+        LOOP
+            FETCH cur_subs INTO v_sub_rec;
+            EXIT WHEN cur_subs%NOTFOUND;
+            
+            v_has_data := TRUE;
+            v_plan_total := v_plan_total + 1;
+            
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(v_sub_rec.customer_id, 10) || ' | ' ||
+                RPAD(v_sub_rec.username, 25) || ' | ' ||
+                RPAD(v_sub_rec.email, 30) || ' | ' ||
+                v_sub_rec.days_remaining
+            );
+        END LOOP;
+        CLOSE cur_subs;
+
+        IF v_has_data THEN
+            DBMS_OUTPUT.PUT_LINE(CHR(10));
+            DBMS_OUTPUT.PUT_LINE('Total Expiring for ' || v_plan_rec.plan_name || ': ' || v_plan_total);
+            v_grand_total := v_grand_total + v_plan_total;
+        END IF;
+
+    END LOOP;
+    CLOSE cur_plans;
+
+    DBMS_OUTPUT.PUT_LINE(CHR(10));
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    IF v_grand_total > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('GRAND TOTAL EXPIRING SUBSCRIPTIONS: ' || v_grand_total);
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('NO SUBSCRIPTIONS EXPIRING WITHIN 7 DAYS.');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+END prc_sub_countdown_report;
+/

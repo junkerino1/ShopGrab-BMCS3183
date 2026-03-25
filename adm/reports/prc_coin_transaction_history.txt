@@ -1,0 +1,87 @@
+CREATE OR REPLACE PROCEDURE prc_coin_transaction_history (
+    p_customer_id IN CUSTOMER.customer_id%TYPE
+) AS
+
+    -- OUTER CURSOR: Get customer and wallet details
+    CURSOR cur_wallet IS
+        SELECT 
+            c.customer_id,
+            c.username,
+            cw.wallet_id,
+            cw.total_coins
+        FROM CUSTOMER c
+        JOIN COIN_WALLET cw ON c.customer_id = cw.customer_id
+        WHERE c.customer_id = p_customer_id;
+        
+    -- INNER CURSOR: Get transactions for a given wallet
+    CURSOR cur_transactions (p_wallet_id IN COIN_WALLET.wallet_id%TYPE) IS
+        SELECT 
+            t.transaction_id,
+            t.order_id,
+            t.coin_changes,
+            TO_CHAR(t.transaction_date, 'DD-MON-YYYY HH24:MI:SS') AS trans_date
+        FROM COIN_TRANSACTION t
+        WHERE t.wallet_id = p_wallet_id
+        ORDER BY t.transaction_date DESC;
+
+    v_has_wallet BOOLEAN := FALSE;
+    v_has_trans  BOOLEAN := FALSE;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 80, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('COIN TRANSACTION HISTORY REPORT', 55));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 80, '='));
+
+    FOR rec_w IN cur_wallet LOOP
+        v_has_wallet := TRUE;
+
+        -- Customer and Wallet Header (Removed '&' to prevent prompts)
+        DBMS_OUTPUT.PUT_LINE(RPAD('CUSTOMER ID', 15)   || ': ' || rec_w.customer_id);
+        DBMS_OUTPUT.PUT_LINE(RPAD('CUSTOMER NAME', 15) || ': ' || rec_w.username);
+        DBMS_OUTPUT.PUT_LINE(RPAD('WALLET ID', 15)     || ': ' || rec_w.wallet_id);
+        DBMS_OUTPUT.PUT_LINE(RPAD('CURRENT COINS', 15) || ': ' || rec_w.total_coins);
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
+        
+        -- Transaction Table Header
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('TRANS ID', 12) || ' | ' ||
+            RPAD('DATE', 22) || ' | ' ||
+            RPAD('ORDER ID', 12) || ' | ' ||
+            'COIN CHANGES'
+        );
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 80, '-'));
+
+        v_has_trans := FALSE;
+
+        FOR rec_t IN cur_transactions(rec_w.wallet_id) LOOP
+            v_has_trans := TRUE;
+            
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec_t.transaction_id, 12) || ' | ' ||
+                RPAD(rec_t.trans_date, 22) || ' | ' ||
+                RPAD(NVL(TO_CHAR(rec_t.order_id), 'N/A'), 12) || ' | ' ||
+                -- Formatting the coin changes
+                CASE 
+                    WHEN rec_t.coin_changes > 0 THEN '+' || TO_CHAR(rec_t.coin_changes) 
+                    ELSE TO_CHAR(rec_t.coin_changes) 
+                END
+            );
+        END LOOP;
+
+        IF NOT v_has_trans THEN
+            DBMS_OUTPUT.PUT_LINE('>>> No transactions found for this wallet.');
+        END IF;
+
+    END LOOP;
+
+    IF NOT v_has_wallet THEN
+        DBMS_OUTPUT.PUT_LINE('NOTICE: Customer ID ' || p_customer_id || ' not found or has no wallet.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 80, '='));
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END prc_coin_transaction_history;
+/

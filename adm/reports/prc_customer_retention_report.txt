@@ -1,0 +1,92 @@
+CREATE OR REPLACE PROCEDURE prc_customer_retention_report AS
+
+    -- OUTER CURSOR: Find customers with >100 coins who haven't ordered in 30 days
+    CURSOR cur_retention IS
+        SELECT 
+            c.customer_id, 
+            c.username, 
+            c.email, 
+            cw.total_coins,
+            MAX(o.order_datetime) AS last_order_date,
+            TRUNC(SYSDATE) - TRUNC(MAX(o.order_datetime)) AS days_since_last_order
+        FROM CUSTOMER c
+        JOIN COIN_WALLET cw ON c.customer_id = cw.customer_id
+        LEFT JOIN CUST_ORDER o ON c.customer_id = o.customer_id
+        WHERE cw.total_coins > 100
+        GROUP BY c.customer_id, c.username, c.email, cw.total_coins
+        HAVING (MAX(o.order_datetime) IS NULL OR TRUNC(SYSDATE) - TRUNC(MAX(o.order_datetime)) > 30)
+        ORDER BY days_since_last_order DESC NULLS FIRST, cw.total_coins DESC;
+
+    -- INNER CURSOR: Fixed for Oracle 11.2 using ROWNUM subquery
+    CURSOR cur_recent_orders (p_cust_id IN CUSTOMER.customer_id%TYPE) IS
+        SELECT * FROM (
+            SELECT 
+                o.order_id, 
+                r.name AS restaurant_name,
+                p.amount_paid,
+                TO_CHAR(o.order_datetime, 'DD-MON-YYYY') AS order_date
+            FROM CUST_ORDER o
+            JOIN RESTAURANT r ON o.restaurant_id = r.restaurant_id
+            JOIN PAYMENT p ON p.order_id = o.order_id
+            WHERE o.customer_id = p_cust_id
+            ORDER BY o.order_datetime DESC
+        ) 
+        WHERE ROWNUM <= 3; -- This is the 11.2 way to "Fetch First 3"
+
+    v_has_data BOOLEAN := FALSE;
+    v_has_orders BOOLEAN;
+    v_total_customers NUMBER := 0;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
+    DBMS_OUTPUT.PUT_LINE(LPAD('CUSTOMER RETENTION REPORT', 60));
+    DBMS_OUTPUT.PUT_LINE(LPAD('(Customers inactive > 30 days with > 100 unused coins)', 75));
+    DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
+
+    FOR rec_c IN cur_retention LOOP
+        v_has_data := TRUE;
+        v_total_customers := v_total_customers + 1;
+        v_has_orders := FALSE;
+
+        DBMS_OUTPUT.PUT_LINE('CUSTOMER: ' || RPAD(rec_c.username, 20) || ' ID: ' || RPAD(rec_c.customer_id, 10) || ' EMAIL: ' || rec_c.email);
+        
+        IF rec_c.last_order_date IS NULL THEN
+            DBMS_OUTPUT.PUT_LINE('COINS   : ' || RPAD(rec_c.total_coins, 20) || ' LAST ORDER: Never Ordered');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('COINS   : ' || RPAD(rec_c.total_coins, 20) || ' LAST ORDER: ' || RPAD(TO_CHAR(rec_c.last_order_date, 'DD-MON-YYYY'), 15) || ' INACTIVE: ' || rec_c.days_since_last_order || ' days');
+        END IF;
+        
+        DBMS_OUTPUT.PUT_LINE(RPAD('-', 100, '-'));
+
+        -- Loop through corresponding transactions
+        FOR rec_o IN cur_recent_orders(rec_c.customer_id) LOOP
+            IF NOT v_has_orders THEN
+                DBMS_OUTPUT.PUT_LINE('  RECENT ORDER HISTORY (Top 3):');
+                v_has_orders := TRUE;
+            END IF;
+            DBMS_OUTPUT.PUT_LINE('  > Order ID: ' || RPAD(rec_o.order_id, 8) || 
+                                 ' | Date: ' || RPAD(rec_o.order_date, 15) || 
+                                 ' | Paid: RM ' || LPAD(TO_CHAR(rec_o.amount_paid, 'FM999,990.00'), 10) || 
+                                 ' | Shop: ' || rec_o.restaurant_name);
+        END LOOP;
+
+        IF NOT v_has_orders THEN
+            DBMS_OUTPUT.PUT_LINE('  > No prior order history found.');
+        END IF;
+
+        DBMS_OUTPUT.PUT_LINE(' '); -- Blank line for spacing
+    END LOOP;
+
+    IF NOT v_has_data THEN
+        DBMS_OUTPUT.PUT_LINE('No customers meet the retention criteria.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
+        DBMS_OUTPUT.PUT_LINE('TOTAL CUSTOMERS AT CHURN RISK : ' || v_total_customers);
+        DBMS_OUTPUT.PUT_LINE(RPAD('=', 100, '='));
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END prc_customer_retention_report;
+/

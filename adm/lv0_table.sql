@@ -70,3 +70,5 @@ INSERT INTO CUSTOMER (email, username, password, phone_no, default_address)
 VALUES ('bob@email.com', 'bob_builder', 'hashpass002', '0198765432', '45 Jalan Cheras, KL');
 INSERT INTO CUSTOMER (email, username, password, phone_no, default_address)
 VALUES ('charlie@email.com', 'charlie_c', 'hashpass003', '0112233445', '78 Jalan Genting, KL');
+
+COMMIT;

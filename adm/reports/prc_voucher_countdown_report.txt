@@ -1,0 +1,103 @@
+CREATE OR REPLACE PROCEDURE prc_voucher_countdown AS
+    -- Outer cursor: Loop through different voucher types
+    CURSOR vTypeCursor IS
+        SELECT DISTINCT voucher_type
+        FROM VOUCHER
+        WHERE status = 'Active'
+          AND valid_end BETWEEN SYSDATE AND SYSDATE + 7
+        ORDER BY voucher_type;
+        
+    -- Inner cursor: Vouchers belonging to the current type
+    CURSOR voucherCursor(p_vtype VARCHAR2) IS
+        SELECT
+            voucher_id,
+            voucher_code,
+            benefit_type,
+            min_spend,
+            max_amount,
+            usage_limit,
+            valid_start,
+            valid_end,
+            ROUND(valid_end - SYSDATE, 1) AS days_remaining
+        FROM VOUCHER
+        WHERE status = 'Active'
+          AND valid_end BETWEEN SYSDATE AND SYSDATE + 7
+          AND voucher_type = p_vtype
+        ORDER BY valid_end ASC;
+
+    vTypeRec   vTypeCursor%ROWTYPE;
+    vRec       voucherCursor%ROWTYPE;
+    v_type_cnt NUMBER := 0;
+    v_total    NUMBER := 0;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('====================================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                            VOUCHERS EXPIRING WITHIN 7 DAYS (BY TYPE)');
+    DBMS_OUTPUT.PUT_LINE('====================================================================================================');
+
+    OPEN vTypeCursor;
+    LOOP
+        FETCH vTypeCursor INTO vTypeRec;
+        EXIT WHEN vTypeCursor%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE('VOUCHER TYPE: ' || vTypeRec.voucher_type);
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------');
+        
+        -- COLUMN HEADER FOR INNER CURSOR
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('ID', 4) || ' | ' ||
+            RPAD('CODE', 12) || ' | ' ||
+            RPAD('BENEFIT', 8) || ' | ' ||
+            RPAD('MIN SPEND', 10) || ' | ' ||
+            RPAD('MAX AMT', 10) || ' | ' ||
+            RPAD('LIMIT', 7) || ' | ' ||
+            RPAD('START', 10) || ' | ' ||
+            RPAD('END', 10) || ' | ' ||
+            'DAYS LEFT'
+        );
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------');
+
+        v_type_cnt := 0;
+
+        OPEN voucherCursor(vTypeRec.voucher_type);
+        LOOP
+            FETCH voucherCursor INTO vRec;
+            EXIT WHEN voucherCursor%NOTFOUND;
+
+            v_type_cnt := v_type_cnt + 1;
+            v_total    := v_total + 1;
+
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(vRec.voucher_id, 4) || ' | ' ||
+                RPAD(vRec.voucher_code, 12) || ' | ' ||
+                RPAD(vRec.benefit_type, 8) || ' | ' ||
+                RPAD(TO_CHAR(vRec.min_spend, '$999.99'), 10) || ' | ' ||
+                RPAD(TO_CHAR(vRec.max_amount, '$999.99'), 10) || ' | ' ||
+                RPAD(NVL(TO_CHAR(vRec.usage_limit), 'N/A'), 7) || ' | ' ||
+                RPAD(TO_CHAR(vRec.valid_start, 'DD-MON-YY'), 10) || ' | ' ||
+                RPAD(TO_CHAR(vRec.valid_end, 'DD-MON-YY'), 10) || ' | ' ||
+                vRec.days_remaining
+            );
+        END LOOP;
+        CLOSE voucherCursor;
+
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('SUBTOTAL: ' || v_type_cnt || ' voucher(s) expiring.');
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+    END LOOP;
+    CLOSE vTypeCursor;
+
+    -- FOOTER
+    DBMS_OUTPUT.PUT_LINE('====================================================================================================');
+    IF v_total = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('NO VOUCHERS EXPIRING WITHIN 7 DAYS.');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('GRAND TOTAL: ' || v_total || ' EXPIRING VOUCHER(S)');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('====================================================================================================');
+
+EXCEPTION
+    WHEN OTHERS THEN
+         DBMS_OUTPUT.PUT_LINE('Error in prc_voucher_countdown: ' || SQLERRM);
+END prc_voucher_countdown;
+/

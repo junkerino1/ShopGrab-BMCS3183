@@ -1,0 +1,89 @@
+CREATE OR REPLACE PROCEDURE prc_rider_current_delivery (
+    p_rider_id IN RIDER.rider_id%TYPE DEFAULT NULL
+) AS
+
+    -- --------------------------------------------------------
+    -- OUTER CURSOR: Find riders who have incomplete orders
+    -- --------------------------------------------------------
+    CURSOR cur_riders IS
+        SELECT r.rider_id, r.name, r.status, r.ongoing_delivery
+        FROM RIDER r
+        WHERE (p_rider_id IS NULL OR r.rider_id = p_rider_id)
+          AND r.rider_id IN (
+              SELECT rider_id 
+              FROM CUST_ORDER 
+              WHERE order_status != 'Completed' 
+                AND rider_id IS NOT NULL
+          )
+        ORDER BY r.rider_id;
+
+    -- --------------------------------------------------------
+    -- INNER CURSOR: Find all incomplete orders for a rider
+    -- --------------------------------------------------------
+    CURSOR cur_orders (p_rid IN RIDER.rider_id%TYPE) IS
+        SELECT 
+            order_id, 
+            order_status, 
+            delivery_address, 
+            TO_CHAR(order_datetime, 'DD-MON-YYYY HH24:MI:SS') AS order_time
+        FROM CUST_ORDER
+        WHERE rider_id = p_rid
+          AND order_status != 'Completed'
+        ORDER BY order_datetime ASC;
+
+    v_has_riders  BOOLEAN := FALSE;
+    v_order_count NUMBER;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                          ONGOING RIDER DELIVERIES');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    FOR rec_r IN cur_riders LOOP
+        v_has_riders := TRUE;
+        v_order_count := 0;
+
+        -- Rider Details
+        DBMS_OUTPUT.PUT_LINE('RIDER ID : ' || rec_r.rider_id);
+        DBMS_OUTPUT.PUT_LINE('NAME     : ' || rec_r.name);
+        DBMS_OUTPUT.PUT_LINE('STATUS   : ' || rec_r.status);
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        
+        -- Delivery Table Header
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('ORDER ID', 10) || ' | ' ||
+            RPAD('DATE/TIME', 22) || ' | ' ||
+            RPAD('STATUS', 15) || ' | ' ||
+            'DELIVERY ADDRESS'
+        );
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+
+        -- Associated Orders
+        FOR rec_o IN cur_orders(rec_r.rider_id) LOOP
+            v_order_count := v_order_count + 1;
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec_o.order_id, 10) || ' | ' ||
+                RPAD(rec_o.order_time, 22) || ' | ' ||
+                RPAD(rec_o.order_status, 15) || ' | ' ||
+                NVL(rec_o.delivery_address, 'N/A')
+            );
+        END LOOP;
+
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('Total ongoing deliveries for rider: ' || v_order_count);
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+    END LOOP;
+
+    -- If no results are found
+    IF NOT v_has_riders THEN
+        IF p_rider_id IS NOT NULL THEN
+            DBMS_OUTPUT.PUT_LINE('No ongoing deliveries found for Rider ID: ' || p_rider_id);
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('No riders currently have ongoing deliveries.');
+        END IF;
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+END prc_rider_current_delivery;
+/
