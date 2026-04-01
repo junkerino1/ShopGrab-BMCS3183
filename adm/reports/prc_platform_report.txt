@@ -1,0 +1,99 @@
+CREATE OR REPLACE PROCEDURE prc_platform_report AS
+
+    -- --------------------------------------------------------
+    -- OUTER CURSOR: Fixed reporting period (rolling last 90 days)
+    -- --------------------------------------------------------
+    CURSOR cur_period IS
+        SELECT
+            TO_CHAR(TRUNC(SYSDATE) - 89, 'YYYY-MM-DD') || ' to ' || TO_CHAR(TRUNC(SYSDATE), 'YYYY-MM-DD') AS period_label,
+            TRUNC(SYSDATE) - 89 AS date_from,
+            TRUNC(SYSDATE) + 1 AS date_to
+        FROM DUAL;
+
+    -- --------------------------------------------------------
+    -- INNER CURSOR: Platform metrics for a given month
+    -- --------------------------------------------------------
+    CURSOR cur_platform_stats (p_date_from DATE, p_date_to DATE) IS
+        SELECT
+            pl.platform_id,
+            pl.platform_name,
+            COUNT(o.order_id) AS total_orders
+        FROM PLATFORM pl
+        JOIN CUST_ORDER o ON o.platform_id = pl.platform_id
+        JOIN PAYMENT p ON p.order_id = o.order_id
+                WHERE o.order_datetime >= p_date_from
+                    AND o.order_datetime < p_date_to
+          AND o.order_status = 'Completed'
+          AND p.payment_status = 'Completed'
+        GROUP BY pl.platform_id, pl.platform_name
+        ORDER BY COUNT(o.order_id) DESC, pl.platform_name ASC;
+
+    v_has_month_data BOOLEAN;
+    v_has_platform_data BOOLEAN;
+    v_month_total_orders NUMBER;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                      PLATFORM MARKET  (90 Days'));
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    v_has_month_data := FALSE;
+
+    FOR rec_m IN cur_period LOOP
+        v_has_month_data := TRUE;
+        v_has_platform_data := FALSE;
+
+                SELECT NVL(COUNT(o.order_id), 0)
+                INTO v_month_total_orders
+        FROM CUST_ORDER o
+        JOIN PAYMENT p ON p.order_id = o.order_id
+        WHERE o.order_datetime >= rec_m.date_from
+          AND o.order_datetime < rec_m.date_to
+          AND o.order_status = 'Completed'
+          AND p.payment_status = 'Completed'
+          AND o.platform_id IS NOT NULL;
+
+        DBMS_OUTPUT.PUT_LINE('PERIOD: ' || rec_m.period_label);
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('PLATFORM', 20) || ' | ' ||
+            RPAD('ORDERS', 10) || ' | ' ||
+            '% OF DELIVERY ORDERS'
+        );
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+
+        FOR rec_p IN cur_platform_stats(rec_m.date_from, rec_m.date_to) LOOP
+            v_has_platform_data := TRUE;
+
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD(rec_p.platform_name, 20) || ' | ' ||
+                RPAD(rec_p.total_orders, 10) || ' | ' ||
+                TO_CHAR(
+                    CASE
+                        WHEN v_month_total_orders = 0 THEN 0
+                        ELSE (rec_p.total_orders / v_month_total_orders) * 100
+                    END,
+                    'FM990.00'
+                ) || '%'
+            );
+        END LOOP;
+
+        IF NOT v_has_platform_data THEN
+            DBMS_OUTPUT.PUT_LINE('No completed platform orders found for this period.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+            DBMS_OUTPUT.PUT_LINE('TOTAL DELIVERY ORDERS IN PERIOD: ' || v_month_total_orders);
+        END IF;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+    END LOOP;
+
+    IF NOT v_has_month_data THEN
+        DBMS_OUTPUT.PUT_LINE('No completed platform orders found for the selected period.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('END OF REPORT');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+END prc_platform_report;
+/

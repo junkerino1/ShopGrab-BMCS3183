@@ -1,0 +1,117 @@
+CREATE OR REPLACE PROCEDURE prc_top_cus_spending_report (
+    p_month IN NUMBER DEFAULT NULL
+) AS
+
+    -- --------------------------------------------------------
+    -- OUTER CURSOR: Decide which month(s) to print
+    -- - p_month is NULL: print all months in current year up to today (YTD)
+    -- - p_month is 1..12: print only that month in current year
+    -- --------------------------------------------------------
+    CURSOR cur_months IS
+        SELECT DISTINCT TO_CHAR(o.order_datetime, 'YYYY-MM') AS month_str
+        FROM CUST_ORDER o
+        JOIN PAYMENT p ON p.order_id = o.order_id
+        WHERE o.order_status = 'Completed'
+          AND p.payment_status = 'Completed'
+          AND o.order_datetime >= TRUNC(SYSDATE, 'YYYY')
+          AND o.order_datetime < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), 1)
+          AND (p_month IS NULL OR EXTRACT(MONTH FROM o.order_datetime) = p_month)
+        ORDER BY month_str DESC;
+
+    -- --------------------------------------------------------
+    -- INNER CURSOR: Top 10 customers by spending for given month
+    -- --------------------------------------------------------
+    CURSOR cur_top_customers (p_month_str VARCHAR2) IS
+        SELECT *
+        FROM (
+            SELECT
+                c.customer_id,
+                c.username,
+                COUNT(DISTINCT o.order_id) AS total_orders,
+                SUM(p.amount_paid) AS total_spent,
+                AVG(p.amount_paid) AS avg_order_value
+            FROM CUSTOMER c
+            JOIN CUST_ORDER o ON o.customer_id = c.customer_id
+            JOIN PAYMENT p ON p.order_id = o.order_id
+            WHERE TO_CHAR(o.order_datetime, 'YYYY-MM') = p_month_str
+              AND o.order_status = 'Completed'
+              AND p.payment_status = 'Completed'
+            GROUP BY c.customer_id, c.username
+            ORDER BY SUM(p.amount_paid) DESC, c.username ASC
+        )
+        WHERE ROWNUM <= 5;
+
+    v_has_month_data BOOLEAN;
+    v_has_customer_data BOOLEAN;
+
+BEGIN
+    IF p_month IS NOT NULL AND (p_month < 1 OR p_month > 12) THEN
+        RAISE_APPLICATION_ERROR(-20011, 'p_month must be between 1 and 12, or NULL for YTD.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                     TOP 10 CUSTOMER SPENDING REPORT');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    IF p_month IS NULL THEN
+        DBMS_OUTPUT.PUT_LINE('Year-to-date');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('Month (' || TO_CHAR(p_month, 'FM00') || ')');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('YEAR: ' || TO_CHAR(SYSDATE, 'YYYY'));
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    v_has_month_data := FALSE;
+
+    FOR rec_m IN cur_months LOOP
+        v_has_month_data := TRUE;
+        v_has_customer_data := FALSE;
+
+        DBMS_OUTPUT.PUT_LINE('MONTH: ' || rec_m.month_str);
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('RANK', 6) || ' | ' ||
+            RPAD('CUST ID', 8) || ' | ' ||
+            RPAD('USERNAME', 20) || ' | ' ||
+            RPAD('ORDERS', 8) || ' | ' ||
+            RPAD('TOTAL SPENT (RM)', 18) || ' | ' ||
+            'AVG ORDER (RM)'
+        );
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+
+        DECLARE
+            v_rank NUMBER := 0;
+        BEGIN
+            FOR rec_c IN cur_top_customers(rec_m.month_str) LOOP
+                v_has_customer_data := TRUE;
+                v_rank := v_rank + 1;
+
+                DBMS_OUTPUT.PUT_LINE(
+                    RPAD(v_rank, 6) || ' | ' ||
+                    RPAD(rec_c.customer_id, 8) || ' | ' ||
+                    RPAD(SUBSTR(rec_c.username, 1, 20), 20) || ' | ' ||
+                    RPAD(rec_c.total_orders, 8) || ' | ' ||
+                    RPAD(TO_CHAR(rec_c.total_spent, 'FM999,999.00'), 18) || ' | ' ||
+                    TO_CHAR(rec_c.avg_order_value, 'FM999,999.00')
+                );
+            END LOOP;
+        END;
+
+        IF NOT v_has_customer_data THEN
+            DBMS_OUTPUT.PUT_LINE('No completed customer payments found for this month.');
+        END IF;
+
+        DBMS_OUTPUT.PUT_LINE(CHR(10));
+    END LOOP;
+
+    IF NOT v_has_month_data THEN
+        DBMS_OUTPUT.PUT_LINE('No completed orders found for the selected period.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('END OF REPORT');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+END prc_top_cus_spending_report ;
+/
