@@ -282,11 +282,20 @@ EXEC prc_rider_delivery;
 EXEC prc_sub_countdown_report;
 
 -- 10I. Voucher Countdown Report
-EXEC prc_voucher_countdown_report;
+EXEC prc_voucher_countdown;
 
 -- 10J. Voucher Redemption Report 
 EXEC prc_voucher_redemption_report;
 
+-- 10K. Top 10 Most Ordered Menu Items Report
+EXEC prc_top_menu_item_report;
+
+-- 10L. Top 10 Customer Spending Report
+EXEC prc_top_cus_spending_report;
+
+-- 10M. Platform Report
+-- No param: rolling last 90 days
+EXEC prc_platform_report;
 
 -- =========================================================
 -- END OF DEMO

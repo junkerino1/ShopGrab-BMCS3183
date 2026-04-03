@@ -1,10 +1,7 @@
 SELECT
-    r.restaurant_id,
-    r.name AS restaurant_name,
-    NVL(SUM(od.quantity), 0) AS total_items_sold,
-    ROUND(NVL(SUM(od.quantity * od.unit_price), 0), 2) AS total_revenue
-FROM RESTAURANT r
-LEFT JOIN CUST_ORDER o ON r.restaurant_id = o.restaurant_id
-LEFT JOIN ORDER_DETAILS od ON o.order_id = od.order_id
-GROUP BY r.restaurant_id, r.name
+    restaurant_id,
+    restaurant_name,
+    total_items_sold,
+    total_revenue
+FROM vw_restaurant_revenue
 ORDER BY total_revenue DESC;

@@ -1,13 +1,8 @@
 SELECT
-    t.tier_name,
-    t.min_total_spend,
-    b.benefit_type,
-    b.benefit_value,
-    b.description
-FROM
-    LOYALTY_TIER t
-LEFT JOIN
-    L_BENEFIT b ON t.tier_id = b.tier_id
-ORDER BY
-    t.min_total_spend ASC,
-    b.benefit_type;
+    tier_name,
+    min_total_spend,
+    benefit_type,
+    benefit_value,
+    description
+FROM vw_loyalty_benefits
+ORDER BY min_total_spend ASC, benefit_type;

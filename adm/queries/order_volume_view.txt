@@ -1,0 +1,11 @@
+CREATE OR REPLACE VIEW vw_order_volume AS
+SELECT
+    p.platform_id AS platform_id,
+    p.platform_name AS platform_name,
+    COUNT(*) AS total_order_delivered
+FROM CUST_ORDER o
+JOIN PLATFORM p ON o.platform_id = p.platform_id
+WHERE o.order_status = 'Completed'
+  AND o.order_type = 'D'
+GROUP BY p.platform_id, p.platform_name;
+

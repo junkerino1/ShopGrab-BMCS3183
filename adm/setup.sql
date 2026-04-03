@@ -49,12 +49,12 @@ CREATE SEQUENCE transaction_seq START WITH 1 INCREMENT BY 1 NOCACHE;
 
 -- REPORTS
 @"reports\prc_average_order_value_report.txt"
-@"reports\prc_coin_flow_report.txt"
+@"reports\prc_top_customer_spending_report.txt"
 @"reports\prc_coin_transaction_history.txt"
 @"reports\prc_customer_retention_report.txt"
 @"reports\prc_monthly_restaurant_sales.txt"
-@"reports\prc_rider_current_delivery_report.txt"
+@"reports\prc_platform_report.txt"
 @"reports\prc_rider_delivery_report.txt"
 @"reports\prc_subscription_countdown_report.txt"
-@"reports\prc_voucher_countdown_report.txt"
+@"reports\prc_top_menu_items_report.txt"
 @"reports\prc_voucher_redemption_report.txt"

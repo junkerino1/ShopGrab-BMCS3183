@@ -1,0 +1,67 @@
+Database Components Description
+
+--- Teammate 1 ---
+Procedures:
+- Login customer: Authenticates and logs in a customer.
+- Register customer: Registers a new customer into the database.
+- Claim voucher: Processes the logic for a customer claiming a specific voucher.
+
+Triggers:
+- After customer insert: Executes necessary initialization logic immediately after a new customer is added (e.g., wallet or loyalty tracking creation).
+- Before voucher insert: Validates or modifies voucher data before it is officially inserted into the database.
+
+Reports:
+- Coin flow report: Generates a report on monthly coins issued and redeemed based on each loyalty tier.
+- Coin transaction report: Generates a report detailing the historical coin transaction records for customers.
+
+--- Teammate 2 ---
+Procedures:
+- Prepare order: Updates an order's status to preparing and processes related initial order details.
+- Apply discount: Calculates and applies applicable voucher or loyalty discounts to an order's total.
+
+Triggers:
+- After voucher update: Executes logic after a voucher is modified (e.g., tracking claims or redemption status).
+- Before loyalty update: Validates or prepares data before a customer's loyalty tier or point balance changes.
+
+Reports:
+- Voucher countdown report: Displays vouchers that are approaching their expiration dates.
+- Voucher redemption report: Details the usage and redemption statistics of various vouchers.
+
+--- Teammate 3 ---
+Procedures:
+- Create payment: Initializes and processes a payment transaction for a customer order.
+- Finalize order: Completes the order confirmation process and moves it to the appropriate queue.
+
+Triggers:
+- After order insert: Executes logic immediately after a new order is placed (e.g., notifying restaurant/rider).
+- After payment insert: Executes logic after a payment is successfully recorded (e.g., updating order status).
+
+Reports:
+- Rider current delivery report: Shows the active deliveries that are currently being handled by riders.
+- Rider delivery report: Details the overall historical delivery performance and records of riders.
+
+--- Teammate 4 ---
+Procedures:
+- Add subscription: Assigns and activates a new subscription for a customer.
+- Add to cart: Inserts selected menu items into a customer's active shopping cart.
+
+Triggers:
+- After sub payment insert: Executes logic after a subscription payment is completed (e.g., extending subscription dates).
+- Before cart insert: Validates cart items (e.g., checking item availability) before they are added.
+
+Reports:
+- Monthly restaurant sales: Shows the aggregated monthly sales revenue for the restaurants.
+- Subscription countdown report: Displays customers with a subscription that is ending in 7 days.
+
+--- Teammate 5 ---
+Procedures:
+- Complete order (Complete delivery): Marks an order as successfully delivered and finalized.
+- Add rider: Registers a new delivery rider into the system.
+
+Triggers:
+- Before rider update: Validates or tracks changes before a rider's information (like status or location) is updated.
+- After rider insert: Executes logic immediately after a new rider is added to the system.
+
+Reports:
+- Customer retention report: Analyzes and displays customer retention metrics and return rates.
+- Average order value report: Calculates total spending and average spending of customers, grouped by their loyalty tier.

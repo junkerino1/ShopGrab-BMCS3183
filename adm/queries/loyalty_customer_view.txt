@@ -1,0 +1,9 @@
+CREATE OR REPLACE VIEW vw_loyalty_customer AS
+SELECT
+    lt.tier_name AS tier,
+    c.customer_id,
+    c.username,
+    ROUND(COALESCE(cl.total_spent, 0), 2) AS total_spent
+FROM LOYALTY_TIER lt
+JOIN C_LOYALTY cl ON lt.tier_id = cl.tier_id
+LEFT JOIN CUSTOMER c ON cl.customer_id = c.customer_id;

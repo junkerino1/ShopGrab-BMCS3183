@@ -1,20 +1,14 @@
-SELECT 
-    r.name AS restaurant_name,
-    r.halal_status,
-    r.location,
-    r.opening_time,
-    r.closing_time,
-    m.item_id,
-    m.name AS item_name,
-    m.item_type,
-    ROUND(COALESCE(m.price, 0), 2) AS price,
-    CASE m.is_budget WHEN 'Y' THEN 'Yes' ELSE 'No' END AS is_budget,
-    CASE m.is_super_deal WHEN 'Y' THEN 'Yes' ELSE 'No' END AS is_super_deal
-FROM RESTAURANT r
-JOIN MENU_ITEM m ON r.restaurant_id = m.restaurant_id
-WHERE TO_CHAR(SYSDATE, 'HH24:MI') BETWEEN r.opening_time AND r.closing_time
-  AND m.is_available = 'Y'
-ORDER BY 
-    r.name, 
-    m.item_type, 
-    m.price;
+SELECT
+  restaurant_name,
+  halal_status,
+  location,
+  opening_time,
+  closing_time,
+  item_id,
+  item_name,
+  item_type,
+  price,
+  is_budget,
+  is_super_deal
+FROM vw_menu_of_open_restaurant
+ORDER BY restaurant_name, item_type, price;

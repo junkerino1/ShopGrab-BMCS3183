@@ -7,7 +7,7 @@ DECLARE
     v_item NUMBER;
     v_date DATE;
 BEGIN
-    FOR i IN 1..20 LOOP
+    FOR i IN 1..50 LOOP
         -- Randomize valid FK IDs based on dummy_data mapping
         v_cust := TRUNC(DBMS_RANDOM.VALUE(1, 21));  -- Random customer (1 to 20)
         v_rest := TRUNC(DBMS_RANDOM.VALUE(1, 6));   -- Random restaurant (1 to 5)

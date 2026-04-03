@@ -1,0 +1,14 @@
+CREATE OR REPLACE VIEW vw_coin_transaction AS
+SELECT
+    c.customer_id,
+    c.username,
+    cw.wallet_id,
+    cw.total_coins AS current_balance,
+    ct.transaction_id,
+    ct.coin_changes,
+    ct.order_id,
+    ct.transaction_date
+FROM CUSTOMER c
+JOIN COIN_WALLET cw ON c.customer_id = cw.customer_id
+JOIN COIN_TRANSACTION ct ON cw.wallet_id = ct.wallet_id;
+
