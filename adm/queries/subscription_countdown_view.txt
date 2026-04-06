@@ -1,9 +1,10 @@
 CREATE OR REPLACE VIEW vw_subscription_countdown AS
 SELECT
-    c.customer_id AS user_id,
+    c.customer_id AS customer_id,
     c.username AS name,
     c.email AS email,
-    ROUND(s.end_date - SYSDATE, 1) AS days_left
+    s.end_date,
+    CEIL(s.end_date - SYSDATE) AS days_left
 FROM CUSTOMER c
 JOIN SUBSCRIPTION s ON c.customer_id = s.customer_id
 WHERE s.status = 'Active'

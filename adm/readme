@@ -43,17 +43,17 @@ SET DEFINE OFF
 --   -> Automatically creates a default 'Silver' tier C_LOYALTY profile.
 --   -> Creates default settings using prc_init_customer_defaults.
 
-EXEC prc_register_customer('demo_hero@email.com', 'demoh', 'mypass123', '0112223344', '99 Jalan Test, KL');
+EXEC prc_register_customer('shereen@email.com', 'shereen', '6969', '0112223344', 'A3809 PV18, KL');
 
 -- Verify 1A: Customer row created
-SELECT customer_id, username, email FROM CUSTOMER WHERE username = 'demoh';
+SELECT customer_id, username, email FROM CUSTOMER WHERE username = 'chaw';
 
 -- Verify 1B: Check trg_after_customer_insert (Coin Wallet & Loyalty Tier)
-SELECT * FROM COIN_WALLET WHERE customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'demoh');
+SELECT * FROM COIN_WALLET WHERE customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'chaw');
 
 SELECT cl.customer_id, lt.tier_name, cl.total_spent
 FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON lt.tier_id = cl.tier_id
-WHERE cl.customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'demoh');
+WHERE cl.customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'shereen');
 
 
 -- =========================================================
@@ -63,7 +63,7 @@ WHERE cl.customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'demoh
 -- Validates credentials against CUSTOMER table and stores 
 -- successful logins in the App_Session package.
 
-EXEC prc_login_customer('demoh', 'mypass123');
+EXEC prc_login_customer('chaw', '6969');
 
 
 -- =========================================================
@@ -118,8 +118,7 @@ FROM (
     FROM SUBSCRIPTION 
     WHERE customer_id = App_Session.get_customer_id 
     ORDER BY subscription_id DESC
-) 
-WHERE ROWNUM <= 1;
+) ;
 
 -- Execute subscription AGAIN to verify Date Stacking (+30 days appended mathematically to the previous end_date)
 EXEC prc_add_subscription(App_Session.get_customer_id);
@@ -175,9 +174,9 @@ SELECT voucher_id, is_used FROM VOUCHER_WALLET WHERE customer_id = App_Session.g
 SELECT usage_limit, status FROM VOUCHER WHERE voucher_id = 1;
 SELECT cl.total_spent, lt.tier_name FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON cl.tier_id = lt.tier_id WHERE cl.customer_id = App_Session.get_customer_id;
 
--- Execute Checkout (Combo test: 'D'elivery, Paid by 'E-Wallet', used Voucher '1', uses 0 coins)
+-- Execute Checkout (Combo test: 'Delivery, Paid by 'E-Wallet', used Voucher '1', uses 0 coins)
 -- Note: User IS a member (subscribed in step 5) so Delivery turns FREE in prc_apply_discounts!
-EXEC prc_checkout('D', 'E-Wallet', '123 Main St, KL', 1, 0);
+EXEC prc_checkout('D', 'E-Wallet', 'A3809 PV18, KL', 1, 0);
 
 -- Display state AFTER Checkout
 
@@ -258,42 +257,40 @@ SELECT rider_id, name, status, ongoing_delivery FROM RIDER WHERE identification_
 
 -- 10A. Average Order Value Report
 EXEC prc_average_order_value_report;
+-- Optional: specific month only (1-12)
+EXEC prc_average_order_value_report(4);
 
--- 10B. Monthly Coin Flow Report 
-EXEC prc_coin_flow_report;
-
--- 10C. Coin Transaction History (Specific to logged in user)
+-- 10B. Coin Transaction History (Specific to logged in user)
 EXEC prc_coin_transaction_history(App_Session.get_customer_id);
 
--- 10D. Customer Retention Report (Inactivity risk analysis)
+-- 10C. Customer Retention Report (Inactivity risk analysis)
 EXEC prc_customer_retention_report;
 
--- 10E. Monthly Restaurant Sales Report 
+-- 10D. Monthly Restaurant Sales Report 
 EXEC prc_monthly_restaurant_sales;
 
--- 10F. Rider Current Delivery Status 
-EXEC prc_rider_current_delivery;
-EXEC prc_rider_current_delivery(10);
+-- 10E. Rider Delivery Report (Requires month 1-12)
+EXEC prc_rider_delivery_report(4);
 
--- 10G. Rider Delivery History Report
-EXEC prc_rider_delivery;
-
--- 10H. Subscription Countdown Report
+-- 10F. Subscription Countdown Report
 EXEC prc_sub_countdown_report;
 
--- 10I. Voucher Countdown Report
-EXEC prc_voucher_countdown;
-
--- 10J. Voucher Redemption Report 
+-- 10G. Voucher Redemption Report 
 EXEC prc_voucher_redemption_report;
+-- Optional: specific voucher only
+EXEC prc_voucher_redemption_report(1);
 
--- 10K. Top 10 Most Ordered Menu Items Report
+-- 10H. Top 10 Most Ordered Menu Items Report
 EXEC prc_top_menu_item_report;
+-- Optional: specific month only (1-12)
+EXEC prc_top_menu_item_report(4);
 
--- 10L. Top 10 Customer Spending Report
+-- 10I. Top 10 Customer Spending Report
 EXEC prc_top_cus_spending_report;
+-- Optional: specific month only (1-12)
+EXEC prc_top_cus_spending_report(4);
 
--- 10M. Platform Report
+-- 10J. Platform Report
 -- No param: rolling last 90 days
 EXEC prc_platform_report;
 

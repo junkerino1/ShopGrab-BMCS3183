@@ -1,9 +1,10 @@
 CREATE OR REPLACE VIEW vw_loyalty_benefits AS
 SELECT
+    b.benefit_id,
+    b.tier_id,
     t.tier_name,
     t.min_total_spend,
     b.benefit_type,
-    b.benefit_value,
     b.description
-FROM LOYALTY_TIER t
-LEFT JOIN L_BENEFIT b ON t.tier_id = b.tier_id;
+FROM L_BENEFIT b
+JOIN LOYALTY_TIER t ON t.tier_id = b.tier_id;

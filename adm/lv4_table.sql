@@ -205,46 +205,4 @@ INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALU
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (39, 42.20, 'Credit Card', 'Completed');
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (40, 38.80, 'E-Wallet', 'Completed');
 
--- 21. COIN_TRANSACTION (1 per order = 40 transactions)
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (1, 1, 50);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (1, 2, 27);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (2, 3, 59);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (2, 4, -100);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (3, 5, 27);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (3, 6, -50);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (4, 7, 45);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (4, 8, 25);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (5, 9, 40);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (5, 10, 44);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (6, 11, 24);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (6, 12, 82);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (7, 13, 25);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (7, 14, 23);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (8, 15, 48);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (8, 16, 43);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (9, 17, 31);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (9, 18, 36);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (10, 19, 46);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (10, 20, 39);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (11, 21, 27);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (11, 22, 55);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (12, 23, 27);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (12, 24, 34);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (13, 25, 52);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (13, 26, 28);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (14, 27, 48);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (14, 28, 24);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (15, 29, 30);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (15, 30, 51);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (16, 31, 50);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (16, 32, 61);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (17, 33, 31);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (17, 34, 25);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (18, 35, 80);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (18, 36, 27);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (19, 37, 30);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (19, 38, 20);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (20, 39, 42);
-INSERT INTO COIN_TRANSACTION (wallet_id, order_id, coin_changes) VALUES (20, 40, 38);
-
 COMMIT;

@@ -65,3 +65,66 @@ Triggers:
 Reports:
 - Customer retention report: Analyzes and displays customer retention metrics and return rates.
 - Average order value report: Calculates total spending and average spending of customers, grouped by their loyalty tier.
+
+--- Queries (Purpose) ---
+- average-order-value.sql: Retrieves total order amount and average order value by loyalty tier (Diamond, Gold, Silver) for spending analysis.
+- coin-flow.sql: Shows monthly coin issuance and redemption totals by customer segment/tier to track coin economy movement.
+- coin-transaction.sql: Displays detailed customer coin transaction history (balance, change amount, related order, and transaction timestamp).
+- loyalty-benefits.sql: Lists loyalty tiers with minimum spend requirement and corresponding benefit types/values for program reference.
+- loyalty-customer.sql: Ranks customers within each loyalty tier based on total spent, useful for customer value analysis.
+- menu-of-open-restaurant.sql: Returns menu items from currently open restaurants with filters like halal status, type, price, budget, and super deal flags.
+- most-ordered-menu.sql: Identifies top ordered menu items by total quantity sold across restaurants.
+- order-volume.sql: Summarizes delivered order volume by platform to compare platform delivery performance.
+- restaurant-revenue.sql: Shows restaurant-level sales performance including total items sold and total revenue.
+- subscription-countdown.sql: Lists subscribed users and days left before subscription expiry for renewal monitoring.
+
+--- Query Decision-Making Mapping (Strategic / Tactical / Operational) ---
+- average-order-value.sql
+	Strategic: Evaluate long-term customer segment profitability by tier for loyalty program redesign.
+	Tactical: Tune monthly promotions and discount depth by tier based on spending behavior.
+	Operational: Monitor current AOV trend by tier to detect sudden drops in order value.
+
+- coin-flow.sql
+	Strategic: Assess sustainability of coin ecosystem (issued vs redeemed) across customer segments.
+	Tactical: Adjust campaign coin rewards and redemption rules each month/quarter.
+	Operational: Track recent month coin flow anomalies for immediate corrective actions.
+
+- coin-transaction.sql
+	Strategic: Identify long-term coin usage patterns and fraud-risk behavior categories.
+	Tactical: Refine wallet rules, redemption limits, and customer support workflows.
+	Operational: Investigate day-to-day suspicious or disputed coin transactions quickly.
+
+- loyalty-benefits.sql
+	Strategic: Redesign tier architecture and benefit economics based on value delivery.
+	Tactical: Update tier benefit mix to improve conversion from Silver to Gold/Diamond.
+	Operational: Verify active tier benefits shown to users are consistent with current policy.
+
+- loyalty-customer.sql
+	Strategic: Identify high-value customer clusters for retention and VIP strategy.
+	Tactical: Target win-back or upsell campaigns at specific customers within each tier.
+	Operational: Generate current top-customer list for immediate engagement activities.
+
+- menu-of-open-restaurant.sql
+	Strategic: Understand long-term assortment and partner coverage opportunities.
+	Tactical: Optimize menu placement and category campaigns for open restaurants.
+	Operational: Support live menu visibility decisions (what to show/highlight now).
+
+- most-ordered-menu.sql
+	Strategic: Decide long-term partnership focus around consistently high-demand items.
+	Tactical: Plan bundles and cross-sell campaigns based on frequent best-sellers.
+	Operational: Promote top-selling items in daily featured slots.
+
+- order-volume.sql
+	Strategic: Evaluate platform/channel performance for expansion or consolidation decisions.
+	Tactical: Rebalance delivery resources and incentive programs by platform.
+	Operational: Monitor current delivered order counts to manage daily workload.
+
+- restaurant-revenue.sql
+	Strategic: Identify key revenue-driving restaurants for long-term account strategy.
+	Tactical: Prioritize merchant support, commissions, and promotions by revenue band.
+	Operational: Track current revenue ranking to trigger immediate merchant actions.
+
+- subscription-countdown.sql
+	Strategic: Measure long-term subscription retention risk and renewal behavior.
+	Tactical: Schedule reminder cadence and targeted renewal offers before expiry.
+	Operational: Execute daily outreach to users with low remaining subscription days.

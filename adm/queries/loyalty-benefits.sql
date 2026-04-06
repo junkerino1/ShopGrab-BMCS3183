@@ -1,8 +1,9 @@
+COLUMN tier_name        FORMAT A8         HEADING 'Tier'
+COLUMN benefit_type     FORMAT A20        HEADING 'Benefit Type'
+COLUMN description      FORMAT A22        HEADING 'Description'
+
 SELECT
     tier_name,
-    min_total_spend,
     benefit_type,
-    benefit_value,
     description
-FROM vw_loyalty_benefits
-ORDER BY min_total_spend ASC, benefit_type;
+FROM vw_loyalty_benefits;

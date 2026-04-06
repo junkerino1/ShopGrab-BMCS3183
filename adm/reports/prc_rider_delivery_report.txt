@@ -1,22 +1,16 @@
-CREATE OR REPLACE PROCEDURE prc_rider_delivery_report AS
+CREATE OR REPLACE PROCEDURE prc_rider_delivery_report (
+    p_month IN NUMBER
+) AS
 
-    -- 1. Outer Cursor: Loop through distinct months present in completed orders
-    CURSOR cur_months IS
-        SELECT DISTINCT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str
-        FROM CUST_ORDER
-        WHERE order_status = 'Completed' 
-          AND order_type = 'D'
-        ORDER BY month_str;
-
-    -- 2. Middle Cursor: Loop through active platforms
+    -- Loop through platforms; print only those with deliveries in the selected month.
     CURSOR cur_platforms IS
         SELECT platform_id, platform_name
         FROM PLATFORM
         ORDER BY platform_name;
 
-    -- 3. Inner Cursor: Get total deliveries per rider for the specific month and platform
-    CURSOR cur_rider_deliveries (p_month VARCHAR2, p_platform_id NUMBER) IS
-        SELECT 
+    -- Get total deliveries per rider for the selected month and platform.
+    CURSOR cur_rider_deliveries (p_platform_id NUMBER) IS
+        SELECT
             r.rider_id,
             r.name AS rider_name,
             COUNT(o.order_id) AS total_deliveries
@@ -25,98 +19,91 @@ CREATE OR REPLACE PROCEDURE prc_rider_delivery_report AS
         WHERE o.order_status = 'Completed'
           AND o.order_type = 'D'
           AND r.platform_id = p_platform_id
-          AND TO_CHAR(o.order_datetime, 'YYYY-MM') = p_month
+                    AND EXTRACT(MONTH FROM o.order_datetime) = p_month
         GROUP BY r.rider_id, r.name
         ORDER BY total_deliveries DESC, r.name;
 
-    v_month_rec     cur_months%ROWTYPE;
-    v_plat_rec      cur_platforms%ROWTYPE;
-    v_rider_rec     cur_rider_deliveries%ROWTYPE;
-
-    v_plat_deliveries NUMBER;
-    v_month_deliveries NUMBER;
-    v_has_data BOOLEAN;
+    v_plat_rec           cur_platforms%ROWTYPE;
+    v_rider_rec          cur_rider_deliveries%ROWTYPE;
+    v_plat_deliveries    NUMBER := 0;
+    v_month_deliveries   NUMBER := 0;
+    v_platform_count     NUMBER := 0;
+    v_has_data           BOOLEAN;
+    v_rank               NUMBER;
 
 BEGIN
-    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
-    DBMS_OUTPUT.PUT_LINE('MONTHLY PLATFORM RIDER DELIVERY REPORT');
-    DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
+    IF p_month IS NULL
+       OR p_month < 1
+       OR p_month > 12
+       OR p_month != TRUNC(p_month) THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Invalid month. Use a whole number from 1 to 12.');
+    END IF;
 
-    OPEN cur_months;
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 72, '='));
+    DBMS_OUTPUT.PUT_LINE('RIDER DELIVERY REPORT FOR MONTH NO: ' || TO_CHAR(p_month, 'FM00'));
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 72, '='));
+
+    OPEN cur_platforms;
     LOOP
-        FETCH cur_months INTO v_month_rec;
-        EXIT WHEN cur_months%NOTFOUND;
+        FETCH cur_platforms INTO v_plat_rec;
+        EXIT WHEN cur_platforms%NOTFOUND;
 
-        DBMS_OUTPUT.PUT_LINE(CHR(10));
-        DBMS_OUTPUT.PUT_LINE('MONTH: ' || v_month_rec.month_str);
-        DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+        v_plat_deliveries := 0;
+        v_has_data := FALSE;
+        v_rank := 0;
 
-        v_month_deliveries := 0;
-
-        OPEN cur_platforms;
+        OPEN cur_rider_deliveries(v_plat_rec.platform_id);
         LOOP
-            FETCH cur_platforms INTO v_plat_rec;
-            EXIT WHEN cur_platforms%NOTFOUND;
+            FETCH cur_rider_deliveries INTO v_rider_rec;
+            EXIT WHEN cur_rider_deliveries%NOTFOUND;
 
-            -- We check if this platform actually has riders before printing its header
-            v_plat_deliveries := 0;
-            v_has_data := FALSE;
-
-            OPEN cur_rider_deliveries(v_month_rec.month_str, v_plat_rec.platform_id);
-            LOOP
-                FETCH cur_rider_deliveries INTO v_rider_rec;
-                EXIT WHEN cur_rider_deliveries%NOTFOUND;
-
-                IF NOT v_has_data THEN
-                    DBMS_OUTPUT.PUT_LINE('PLATFORM: ' || v_plat_rec.platform_name);
-                    DBMS_OUTPUT.PUT_LINE(
-                        RPAD('RIDER ID',       10, ' ') || ' | ' ||
-                        RPAD('RIDER NAME',     35, ' ') || ' | ' ||
-                        LPAD('DELIVERIES',     25, ' ')
-                    );
-                    DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
-                    v_has_data := TRUE;
-                END IF;
-
+            IF NOT v_has_data THEN
+                DBMS_OUTPUT.PUT_LINE(CHR(10) || 'PLATFORM: ' || v_plat_rec.platform_name || ' (ID: ' || v_plat_rec.platform_id || ')');
+                DBMS_OUTPUT.PUT_LINE(LPAD('-', 72, '-'));
                 DBMS_OUTPUT.PUT_LINE(
-                    RPAD(v_rider_rec.rider_id,             10, ' ') || ' | ' ||
-                    RPAD(v_rider_rec.rider_name,           35, ' ') || ' | ' ||
-                    LPAD(v_rider_rec.total_deliveries,     25, ' ')
+                    RPAD('NO', 3, ' ') || ' | ' ||
+                    RPAD('RIDER ID', 8, ' ') || ' | ' ||
+                    RPAD('RIDER NAME', 35, ' ') || ' | ' ||
+                    LPAD('DELIVERIES', 14, ' ')
                 );
-
-                v_plat_deliveries := v_plat_deliveries + v_rider_rec.total_deliveries;
-            END LOOP;
-            CLOSE cur_rider_deliveries;
-
-            -- Print Platform Total if data exists
-            IF v_has_data THEN
-                DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
-                DBMS_OUTPUT.PUT_LINE(
-                    RPAD('TOTAL FOR ' || v_plat_rec.platform_name, 48, ' ') || ' | ' ||
-                    LPAD(v_plat_deliveries, 25, ' ')
-                );
-                DBMS_OUTPUT.PUT_LINE(' ');
-
-                v_month_deliveries := v_month_deliveries + v_plat_deliveries;
-                DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
+                DBMS_OUTPUT.PUT_LINE(LPAD('-', 72, '-'));
+                v_has_data := TRUE;
+                v_platform_count := v_platform_count + 1;
             END IF;
 
-        END LOOP;
-        CLOSE cur_platforms;
+            v_rank := v_rank + 1;
 
-        -- Print Monthly Total
-        
-        IF v_month_deliveries > 0 THEN
             DBMS_OUTPUT.PUT_LINE(
-                RPAD('TOTAL DELIVERIES IN ' || v_month_rec.month_str, 48, ' ') || ' | ' ||
-                LPAD(v_month_deliveries, 25, ' ')
+                LPAD(v_rank, 3, ' ') || ' | ' ||
+                RPAD(v_rider_rec.rider_id, 8, ' ') || ' | ' ||
+                RPAD(v_rider_rec.rider_name, 35, ' ') || ' | ' ||
+                LPAD(v_rider_rec.total_deliveries, 14, ' ')
             );
-        ELSE
-            DBMS_OUTPUT.PUT_LINE('No deliveries completely executed in this month.');
-        END IF;
 
+            v_plat_deliveries := v_plat_deliveries + v_rider_rec.total_deliveries;
+        END LOOP;
+        CLOSE cur_rider_deliveries;
+
+        IF v_has_data THEN
+            DBMS_OUTPUT.PUT_LINE(LPAD('-', 72, '-'));
+            DBMS_OUTPUT.PUT_LINE(
+                RPAD('PLATFORM TOTAL', 54, ' ') || ' | ' ||
+                LPAD(v_plat_deliveries, 14, ' ')
+            );
+            DBMS_OUTPUT.PUT_LINE(LPAD('-', 72, '-'));
+
+            v_month_deliveries := v_month_deliveries + v_plat_deliveries;
+        END IF;
     END LOOP;
-    CLOSE cur_months;
+    CLOSE cur_platforms;
+
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || LPAD('=', 72, '='));
+    IF v_month_deliveries > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('TOTAL DELIVERIES IN MONTH ' || TO_CHAR(p_month, 'FM00') || ': ' || TO_CHAR(v_month_deliveries, 'FM999,999,990'));
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('No completed delivery records found for month ' || TO_CHAR(p_month, 'FM00') || '.');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE(LPAD('=', 72, '='));
 
 END prc_rider_delivery_report;
 /

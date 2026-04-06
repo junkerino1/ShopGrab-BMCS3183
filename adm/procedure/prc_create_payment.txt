@@ -4,8 +4,26 @@ CREATE OR REPLACE PROCEDURE prc_create_payment (
     p_payment_method   IN VARCHAR2,
     p_status           OUT VARCHAR2
 ) AS
+    v_order_count NUMBER;
+    e_invalid_amount EXCEPTION;
+    e_order_not_found EXCEPTION;
 BEGIN
     p_status := 'SUCCESS';
+
+    -- Custom exception: payment amount must be positive.
+    IF p_final_amount IS NULL OR p_final_amount <= 0 THEN
+        RAISE e_invalid_amount;
+    END IF;
+
+    -- RAISE_APPLICATION_ERROR: order must exist before payment.
+    SELECT COUNT(*)
+    INTO v_order_count
+    FROM CUST_ORDER
+    WHERE order_id = p_order_id;
+
+    IF v_order_count = 0 THEN
+        RAISE e_order_not_found;
+    END IF;
 
     INSERT INTO PAYMENT (
         payment_id, order_id, amount_paid,
@@ -16,6 +34,10 @@ BEGIN
     );
 
 EXCEPTION
+    WHEN e_invalid_amount THEN
+        p_status := 'Error: Payment amount must be greater than 0.';
+    WHEN e_order_not_found THEN
+        p_status := 'Error: Order ID not found for payment.';
     WHEN OTHERS THEN
         p_status := 'Error in prc_create_payment: ' || SQLERRM;
 END;

@@ -1,4 +1,6 @@
-CREATE OR REPLACE PROCEDURE prc_average_order_value_report AS
+CREATE OR REPLACE PROCEDURE prc_average_order_value_report (
+    p_month IN NUMBER DEFAULT NULL
+) AS
     -- Outer cursor: Loop through distinct months when completed orders occurred
     CURSOR cur_months IS
         SELECT DISTINCT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str
@@ -30,7 +32,9 @@ CREATE OR REPLACE PROCEDURE prc_average_order_value_report AS
           AND o.order_status = 'Completed'
           AND TO_CHAR(o.order_datetime, 'YYYY-MM') = p_month;
 
-    v_month_rec   cur_months%ROWTYPE;
+    TYPE t_month_cur IS REF CURSOR;
+    v_month_cursor t_month_cur;
+    v_month_str   VARCHAR2(7);
     v_tier_rec    cur_tiers%ROWTYPE;
     v_stats_rec   cur_tier_stats%ROWTYPE;
     
@@ -41,17 +45,36 @@ CREATE OR REPLACE PROCEDURE prc_average_order_value_report AS
     v_grand_revenue NUMBER(12,2) := 0;
 
 BEGIN
+    IF p_month IS NOT NULL THEN
+        IF p_month < 1 OR p_month > 12 OR p_month != TRUNC(p_month) THEN
+            DBMS_OUTPUT.PUT_LINE('Error: Month parameter must be a whole number from 1 to 12.');
+            RETURN;
+        END IF;
+    END IF;
+
     DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
-    DBMS_OUTPUT.PUT_LINE('           AVERAGE ORDER VALUE BY SEGMENT (MONTHLY)');
+    DBMS_OUTPUT.PUT_LINE('AVERAGE ORDER VALUE BY SEGMENT (MONTHLY)');
     DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
 
-    OPEN cur_months;
+    IF p_month IS NULL THEN
+        OPEN v_month_cursor FOR
+            SELECT DISTINCT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str
+            FROM CUST_ORDER
+            WHERE order_status = 'Completed'
+            ORDER BY month_str;
+    ELSE
+        OPEN v_month_cursor FOR
+            SELECT DISTINCT TO_CHAR(order_datetime, 'YYYY-MM') AS month_str
+            FROM CUST_ORDER
+            WHERE order_status = 'Completed'
+              AND EXTRACT(MONTH FROM order_datetime) = p_month
+            ORDER BY month_str;
+    END IF;
+
     LOOP
-        FETCH cur_months INTO v_month_rec;
-        EXIT WHEN cur_months%NOTFOUND;
-
-        DBMS_OUTPUT.PUT_LINE(CHR(10));
-        DBMS_OUTPUT.PUT_LINE('MONTH: ' || v_month_rec.month_str);
+        FETCH v_month_cursor INTO v_month_str;
+        EXIT WHEN v_month_cursor%NOTFOUND;
+        DBMS_OUTPUT.PUT_LINE('MONTH: ' || v_month_str);
         DBMS_OUTPUT.PUT_LINE(LPAD('-', 80, '-'));
         DBMS_OUTPUT.PUT_LINE(
             RPAD('TIER NAME',       20, ' ') || ' | ' ||
@@ -69,7 +92,7 @@ BEGIN
             FETCH cur_tiers INTO v_tier_rec;
             EXIT WHEN cur_tiers%NOTFOUND;
 
-            OPEN cur_tier_stats(v_tier_rec.tier_id, v_month_rec.month_str);
+            OPEN cur_tier_stats(v_tier_rec.tier_id, v_month_str);
             FETCH cur_tier_stats INTO v_stats_rec;
             CLOSE cur_tier_stats;
 
@@ -114,10 +137,9 @@ BEGIN
         v_grand_revenue := v_grand_revenue + v_monthly_revenue;
 
     END LOOP;
-    CLOSE cur_months;
+    CLOSE v_month_cursor;
     
     -- Print Grand Average
-    DBMS_OUTPUT.PUT_LINE(CHR(10));
     IF v_grand_orders > 0 THEN
         DBMS_OUTPUT.PUT_LINE(
             RPAD('GRAND OVERALL',                        20, ' ') || ' | ' ||
@@ -130,7 +152,6 @@ BEGIN
     END IF;
 
     DBMS_OUTPUT.PUT_LINE(LPAD('=', 80, '='));
-    DBMS_OUTPUT.PUT_LINE('End of Report.');
 
 END prc_average_order_value_report;
 /

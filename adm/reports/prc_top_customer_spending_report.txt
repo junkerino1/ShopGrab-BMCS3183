@@ -19,7 +19,7 @@ CREATE OR REPLACE PROCEDURE prc_top_cus_spending_report (
         ORDER BY month_str DESC;
 
     -- --------------------------------------------------------
-    -- INNER CURSOR: Top 10 customers by spending for given month
+    -- INNER CURSOR: Top 5 customers by spending for given month
     -- --------------------------------------------------------
     CURSOR cur_top_customers (p_month_str VARCHAR2) IS
         SELECT *

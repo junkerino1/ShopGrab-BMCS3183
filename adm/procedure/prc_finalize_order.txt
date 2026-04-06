@@ -54,6 +54,6 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        p_status := 'Error in prc_finalize_order: ' || SQLERRM;
+        p_status := 'Error occured when finalizing order: ' || SQLERRM;
 END;
 /

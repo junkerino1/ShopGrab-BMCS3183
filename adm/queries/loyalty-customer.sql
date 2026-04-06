@@ -1,3 +1,8 @@
+COLUMN tier         FORMAT A7         HEADING 'TIER'
+COLUMN customer_id  FORMAT 99999      HEADING 'CID'
+COLUMN username     FORMAT A12        HEADING 'USERNAME'
+COLUMN total_spent  FORMAT 999990.00  HEADING 'SPENT'
+
 SELECT
     tier,
     customer_id,

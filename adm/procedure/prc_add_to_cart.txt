@@ -11,6 +11,26 @@ CREATE OR REPLACE PROCEDURE prc_add_to_cart (
     v_existing_qty        NUMBER;
     v_new_cart_id         NUMBER;
 BEGIN
+    -- Business validation: quantity must be positive.
+    IF p_quantity IS NULL OR p_quantity <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20012, 'Invalid quantity. Quantity must be greater than 0.');
+    END IF;
+
+    -- Business validation: cart can only contain items from one restaurant.
+    BEGIN
+        SELECT restaurant_id
+        INTO v_cart_restaurant_id
+        FROM TEMP_CART
+        WHERE ROWNUM = 1;
+
+        IF v_cart_restaurant_id <> p_restaurant_id THEN
+            RAISE_APPLICATION_ERROR(-20013, 'Cart contains items from another restaurant. Please checkout or clear cart first.');
+        END IF;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            NULL; -- Empty cart, so restaurant constraint is not violated.
+    END;
+
     -- Validate: item must exist and be available in the given restaurant
     BEGIN
         SELECT name, price
@@ -21,8 +41,7 @@ BEGIN
           AND is_available = 'Y';
     EXCEPTION
         WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUT_LINE('Error: Item not found or unavailable.');
-            RETURN;
+            RAISE_APPLICATION_ERROR(-20011, 'Item not found or unavailable for the selected restaurant.');
     END;
 
     -- If item already exists in cart, just update the quantity

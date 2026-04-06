@@ -1,8 +1,5 @@
 CREATE OR REPLACE PROCEDURE prc_voucher_redemption_report (
-    p_voucher_type  IN  VARCHAR2  DEFAULT NULL,
-    p_status        IN  VARCHAR2  DEFAULT NULL,
-    p_date_from     IN  DATE      DEFAULT NULL,
-    p_date_to       IN  DATE      DEFAULT NULL
+    p_voucher_id IN VOUCHER.voucher_id%TYPE DEFAULT NULL
 )
 AS
     CURSOR cur_voucher IS
@@ -11,12 +8,10 @@ AS
             v.voucher_code,
             v.valid_start,
             v.valid_end,
-            v.voucher_type
+            v.voucher_type,
+            v.status
         FROM VOUCHER v
-        WHERE (p_voucher_type IS NULL OR v.voucher_type = p_voucher_type)
-          AND (p_status IS NULL OR v.status = p_status)
-          AND (p_date_from IS NULL OR v.valid_start >= p_date_from)
-          AND (p_date_to IS NULL OR v.valid_end <= p_date_to)
+                WHERE (p_voucher_id IS NULL OR v.voucher_id = p_voucher_id)
         ORDER BY v.valid_start DESC;
 
     CURSOR cur_orders (p_id IN VOUCHER.voucher_id%TYPE) IS
@@ -30,48 +25,59 @@ AS
         ORDER BY o.order_datetime DESC;
 
     v_times_used NUMBER;
-    v_total_val  NUMBER;
+    v_has_voucher_data BOOLEAN := FALSE;
 
 BEGIN
-    -- Header Section
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 65, '='));
-    DBMS_OUTPUT.PUT_LINE(LPAD('VOUCHER REDEMPTION SUMMARY REPORT', 48));
-    DBMS_OUTPUT.PUT_LINE(RPAD('=', 65, '='));
-    FOR rec_v IN cur_voucher LOOP
-        v_times_used := 0;
-        v_total_val  := 0;
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+    DBMS_OUTPUT.PUT_LINE('                       VOUCHER REDEMPTION SUMMARY REPORT');
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
 
-        -- Voucher Info Header
-        DBMS_OUTPUT.PUT_LINE('VOUCHER: ' || RPAD(rec_v.voucher_code, 15));
-        DBMS_OUTPUT.PUT_LINE('PERIOD : ' || TO_CHAR(rec_v.valid_start, 'DD-MON-YYYY') || ' to ' || TO_CHAR(rec_v.valid_end, 'DD-MON-YYYY'));
-        DBMS_OUTPUT.PUT_LINE(RPAD('-', 65, '-'));
-        
-        -- Column Headers for Orders
-        DBMS_OUTPUT.PUT_LINE(RPAD('  ORDER ID', 15) || RPAD('DATE/TIME', 25) || LPAD('AMOUNT', 15));
-        DBMS_OUTPUT.PUT_LINE(RPAD('  ' || RPAD('-', 12, '-'), 15) || RPAD(RPAD('-', 20, '-'), 25) || LPAD(RPAD('-', 12, '-'), 15));
+    DBMS_OUTPUT.PUT_LINE('FILTER:');
+    DBMS_OUTPUT.PUT_LINE('  VOUCHER ID : ' || NVL(TO_CHAR(p_voucher_id), 'ALL'));
+    DBMS_OUTPUT.PUT_LINE('================================================================================');
+
+    FOR rec_v IN cur_voucher LOOP
+        v_has_voucher_data := TRUE;
+        v_times_used := 0;
+
+        DBMS_OUTPUT.PUT_LINE('VOUCHER: ' || rec_v.voucher_code ||
+                             ' | TYPE: ' || rec_v.voucher_type ||
+                             ' | STATUS: ' || rec_v.status);
+        DBMS_OUTPUT.PUT_LINE('VALIDITY: ' || TO_CHAR(rec_v.valid_start, 'DD-MON-YYYY') ||
+                             ' to ' || TO_CHAR(rec_v.valid_end, 'DD-MON-YYYY'));
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE(
+            RPAD('ORDER ID', 12) || ' | ' ||
+            RPAD('DATE/TIME', 22) || ' | ' ||
+            LPAD('AMOUNT (RM)', 14)
+        );
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
 
         FOR rec_o IN cur_orders(rec_v.voucher_id) LOOP
             v_times_used := v_times_used + 1;
-            v_total_val  := v_total_val + rec_o.amount_paid;
             
             DBMS_OUTPUT.PUT_LINE(
-                '  ' || RPAD(rec_o.order_id, 13) || 
-                RPAD(rec_o.order_dt, 25) || 
-                LPAD('RM ' || TO_CHAR(rec_o.amount_paid, 'FM999,990.00'), 15)
+                RPAD(rec_o.order_id, 12) || ' | ' ||
+                RPAD(rec_o.order_dt, 22) || ' | ' ||
+                LPAD(TO_CHAR(rec_o.amount_paid, 'FM999,990.00'), 14)
             );
         END LOOP;
 
         IF v_times_used = 0 THEN
-            DBMS_OUTPUT.PUT_LINE('  *** No redemptions found for this voucher ***');
+            DBMS_OUTPUT.PUT_LINE('No redemptions found for this voucher.');
         END IF;
 
-        -- Voucher Footer/Summary
-        DBMS_OUTPUT.PUT_LINE(RPAD('-', 65, '-'));
-        DBMS_OUTPUT.PUT_LINE(RPAD('Subtotal Usage:', 25) || v_times_used || ' time(s)');
-        DBMS_OUTPUT.PUT_LINE(RPAD('Subtotal Value:', 25) || 'RM ' || TO_CHAR(v_total_val, 'FM999,990.00'));
-        DBMS_OUTPUT.PUT_LINE(RPAD('-', 65, '-'));
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------------------------------');
+        DBMS_OUTPUT.PUT_LINE('TOTAL USAGE: ' || v_times_used || ' time(s)');
+        DBMS_OUTPUT.PUT_LINE('================================================================================');
         
     END LOOP;
+
+    IF NOT v_has_voucher_data THEN
+        DBMS_OUTPUT.PUT_LINE('No vouchers found for the selected voucher ID.');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('END OF REPORT');
 
 EXCEPTION
     WHEN OTHERS THEN

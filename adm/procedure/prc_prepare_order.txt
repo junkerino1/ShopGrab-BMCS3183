@@ -12,6 +12,7 @@ CREATE OR REPLACE PROCEDURE prc_prepare_order (
 ) AS
     v_cart_count       NUMBER := 0;
     v_restaurant_found BOOLEAN := FALSE;
+    e_no_available_rider EXCEPTION;
 
     CURSOR c_cart_summary IS
         SELECT COUNT(*) AS cart_count, NVL(SUM(subtotal), 0) AS cart_total
@@ -100,12 +101,13 @@ BEGIN
 
         EXCEPTION
             WHEN NO_DATA_FOUND THEN
-                p_status := 'Error: No available riders right now.';
-                RETURN;
+                RAISE e_no_available_rider;
         END;
     END IF;
 
 EXCEPTION
+    WHEN e_no_available_rider THEN
+        p_status := 'Error: No available riders right now.';
     WHEN OTHERS THEN
         p_status := 'Error in prc_prepare_order: ' || SQLERRM;
 END;

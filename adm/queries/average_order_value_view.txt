@@ -1,8 +1,8 @@
 CREATE OR REPLACE VIEW vw_average_order_value AS
 SELECT
     lt.tier_name AS tier,
-    SUM(p.amount_paid) AS total_order_amount,
-    AVG(p.amount_paid) AS avg_order_value
+    ROUND(SUM(p.amount_paid), 2) AS total_order_amount,
+    ROUND(AVG(p.amount_paid), 2) AS avg_order_value
 FROM LOYALTY_TIER lt
 JOIN C_LOYALTY cl ON lt.tier_id = cl.tier_id
 JOIN CUST_ORDER o ON cl.customer_id = o.customer_id
