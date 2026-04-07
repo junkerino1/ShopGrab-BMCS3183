@@ -1,299 +1,275 @@
--- To set up your testing environment, run the following commands in SQL*Plus. 
--- This will create a new user 'shopgrab' with DBA privileges, allowing you 
--- to execute the comprehensive test script without permission issues.
-DROP USER shopgrab CASCADE;
-CREATE USER shopgrab IDENTIFIED BY pass6969;
-GRANT DBA TO shopgrab;
-GRANT CREATE SESSION TO shopgrab;
-
--- Then, connect to the 'shopgrab' user and test the script below.   
-CONNECT
-username: shopgrab
-password: pass6969
-
--- =========================================================
--- INITIALIZATION SEQUENCE
--- =========================================================
--- Run these commands strictly in this order to set up your test environment.
--- The tables and dummy data have been segregated by dependency levels.
-
--- Configure SQL*Plus output for optimal viewing
-SET SERVEROUTPUT ON
-SET LINESIZE 120
-SET PAGESIZE 100
-SET DEFINE OFF
-
-@create_table.sql
-@setup.sql
-@lv0_table.sql
-@lv1_table.sql
-@lv2_table.sql
-@lv3_table.sql
-@lv4_table.sql
-
-
-
--- =========================================================
--- 1. REGISTER NEW CUSTOMER
--- =========================================================
--- PROCEDURE: prc_register_customer
--- Appends a new user to the CUSTOMER table.
--- TRIGGER FIRED: trg_after_customer_insert
---   -> Automatically creates an empty COIN_WALLET.
---   -> Automatically creates a default 'Silver' tier C_LOYALTY profile.
---   -> Creates default settings using prc_init_customer_defaults.
-
-EXEC prc_register_customer('shereen@email.com', 'shereen', '6969', '0112223344', 'A3809 PV18, KL');
-
--- Verify 1A: Customer row created
-SELECT customer_id, username, email FROM CUSTOMER WHERE username = 'chaw';
-
--- Verify 1B: Check trg_after_customer_insert (Coin Wallet & Loyalty Tier)
-SELECT * FROM COIN_WALLET WHERE customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'chaw');
-
-SELECT cl.customer_id, lt.tier_name, cl.total_spent
-FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON lt.tier_id = cl.tier_id
-WHERE cl.customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'shereen');
-
-
--- =========================================================
--- 2. TEST LOGIN
--- =========================================================
--- PROCEDURE: prc_login_customer
--- Validates credentials against CUSTOMER table and stores 
--- successful logins in the App_Session package.
-
-EXEC prc_login_customer('chaw', '6969');
-
-
--- =========================================================
--- 3. CHECK SESSION
--- =========================================================
--- PACKAGE: App_Session
--- Verifies that global session memory holds the logged-in credentials.
-
-SELECT App_Session.get_customer_id AS session_cust_id, App_Session.get_username AS session_user FROM DUAL;
-
-
--- =========================================================
--- 4. TEST VOUCHER CLAIMING
--- =========================================================
--- PROCEDURE: prc_claim_voucher
--- Handles assigning public vouchers to a user's wallet.
--- TRIGGER FIRED: trg_before_vwallet_insert
---   -> intercepts to check if voucher is expired, inactive, or usage limit has reached 0.
-
--- Claim a valid voucher
-EXEC prc_claim_voucher(App_Session.get_customer_id, 'NEWUSER10');
-
--- Verify voucher successfully stored in VOUCHER_WALLET
-SELECT * FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
-
--- Test logic guard: Claiming same voucher again (Should throw Application Error)
-EXEC prc_claim_voucher(App_Session.get_customer_id, 'NEWUSER10');
-
--- Test logic guard: Claiming invalid/non-existent code
-EXEC prc_claim_voucher(App_Session.get_customer_id, 'FAKEDISCOUNT99');
-
-
--- =========================================================
--- 5. TEST SUBSCRIPTION TO PREMIUM
--- =========================================================
--- PROCEDURE: prc_add_subscription 
--- Creates a SUBSCRIPTION row. Automatically chains to payment logic.
--- TRIGGER FIRED: trg_after_sub_payment_insert
---   -> Activates the subscription seamlessly. Follow-up stacking logic 
---      pushes the end_date to +30 days on top of current maximums.
-
--- Check existing state (Should be empty)
-SELECT subscription_id, plan_id, status, start_date, end_date FROM SUBSCRIPTION WHERE customer_id = App_Session.get_customer_id;
-
--- Execute first subscription
-EXEC prc_add_subscription(App_Session.get_customer_id);
-
--- Verify subscription active and dates assigned
-SELECT subscription_id, plan_id, status, start_date, end_date 
-FROM (
-    SELECT subscription_id, plan_id, status, start_date, end_date 
-    FROM SUBSCRIPTION 
-    WHERE customer_id = App_Session.get_customer_id 
-    ORDER BY subscription_id DESC
-) ;
-
--- Execute subscription AGAIN to verify Date Stacking (+30 days appended mathematically to the previous end_date)
-EXEC prc_add_subscription(App_Session.get_customer_id);
-
--- Verify stacking successful
-SELECT subscription_id, plan_id, status, start_date, end_date 
-FROM (
-    SELECT subscription_id, plan_id, status, start_date, end_date 
-    FROM SUBSCRIPTION 
-    WHERE customer_id = App_Session.get_customer_id 
-    ORDER BY subscription_id DESC
-) 
-WHERE ROWNUM <= 2;
-
-
--- =========================================================
--- 6. ADD TO CART
--- =========================================================
--- PROCEDURE: prc_add_to_cart
--- Inserts items into the TEMP_CART global temporary table.
--- TRIGGER FIRED: trg_before_cart_insert
---   -> Blocks items from different restaurants being mixed.
-
--- Add from Burger King (restaurant_id = 1)
-EXEC prc_add_to_cart(1, 1, 2);
-
--- Test trg_before_cart_insert block: Attempt Add from Seoul Garden (restaurant_id = 2)
-EXEC prc_add_to_cart(6, 2, 1);
-
--- Continue building safe cart (All Burger King)
-EXEC prc_add_to_cart(4, 1, 1);
-EXEC prc_add_to_cart(5, 1, 2);
-
--- View the Cart using Procedure
-EXEC prc_view_cart;
-
-
--- =========================================================
--- 7. CHECKOUT (FULL DEMO)
--- =========================================================
--- PROCEDURE: prc_checkout
--- Wrapper that orchestrates prepare, apply_discounts, finalize, 
--- create_payment, and receipt generation.
--- TRIGGERS FIRED IN THIS BLOCK:
---   -> trg_after_cust_order_insert: Assigns Rider + increments RIDER.ongoing_delivery
---   -> trg_after_payment_insert: Deducts/Awards Coins, Empties TEMP_CART
---   -> trg_before_cloyalty_upd: Checks total_spent and upgrades Tier
---   -> trg_after_voucher_update: If used voucher is Public, decrements VOUCHER.usage_limit
-
--- Display state BEFORE Checkout
-SELECT total_coins FROM COIN_WALLET WHERE customer_id = App_Session.get_customer_id;
-SELECT voucher_id, is_used FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
-SELECT usage_limit, status FROM VOUCHER WHERE voucher_id = 1;
-SELECT cl.total_spent, lt.tier_name FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON cl.tier_id = lt.tier_id WHERE cl.customer_id = App_Session.get_customer_id;
-
--- Execute Checkout (Combo test: 'Delivery, Paid by 'E-Wallet', used Voucher '1', uses 0 coins)
--- Note: User IS a member (subscribed in step 5) so Delivery turns FREE in prc_apply_discounts!
-EXEC prc_checkout('D', 'E-Wallet', 'A3809 PV18, KL', 1, 0);
-
--- Display state AFTER Checkout
-
--- Verify Coins Awarded (trg_after_payment_insert)
-SELECT total_coins FROM COIN_WALLET WHERE customer_id = App_Session.get_customer_id;
-
--- Verify Loyalty Updated & Potentially Upgraded (trg_before_cloyalty_upd)
-SELECT cl.total_spent, lt.tier_name FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON cl.tier_id = lt.tier_id WHERE cl.customer_id = App_Session.get_customer_id;
-
--- Verify Voucher state swapped (trg_after_payment_insert wrapper)
-SELECT voucher_id, is_used FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
-
--- Verify global public voucher limit was reduced globally (trg_after_voucher_update)
-SELECT usage_limit, status FROM VOUCHER WHERE voucher_id = 1;
-
--- To check Rider workload assignment (trg_after_cust_order_insert)
--- Query the specific rider automatically assigned to standard order
-SELECT order_id, rider_id, order_status 
-FROM (
-    SELECT order_id, rider_id, order_status 
-    FROM CUST_ORDER 
-    WHERE customer_id = App_Session.get_customer_id 
-    ORDER BY order_id DESC
-) 
-WHERE ROWNUM <= 1;
-
--- We use the nested lookup below to act as checking Rider ID natively!
-SELECT rider_id, ongoing_delivery, status FROM RIDER WHERE rider_id = (
-    SELECT rider_id FROM (
-        SELECT rider_id FROM CUST_ORDER 
-        WHERE customer_id = App_Session.get_customer_id 
-        ORDER BY order_id DESC
-    ) WHERE ROWNUM <= 1
-);
-
-
--- =========================================================
--- 8. EXECUTE COMPLETE ORDER
--- =========================================================
--- PROCEDURE: prc_complete_delivery
--- Finishes the cycle. Flips Order status and frees the rider.
--- TRIGGER FIRED: trg_before_rider_update
---   -> Drops ongoing_delivery -1. If < 5, reverts status from 'Busy' to 'Available'.
-
--- Complete the exact order we just processed
-EXEC prc_complete_delivery( 50 );
-
--- Show order status already turned into 'Completed'
-SELECT order_id, order_status FROM CUST_ORDER WHERE order_id = 50;
-
--- Select from rider again to show the ongoing_delivery decremented
-SELECT rider_id, name, ongoing_delivery, status FROM RIDER WHERE rider_id = 21;
-
--- =========================================================
--- 9. EXECUTE RIDER INSERT 
--- =========================================================
--- PROCEDURE: prc_add_rider
--- Inserts brand new rider to system under specific platform.
--- TRIGGER FIRED: trg_after_rider_insert
---   -> Auto-syncs PLATFORM.rider_count
-
--- Show platform rider count BEFORE (Platform 1 = GrabFood)
-SELECT platform_id, platform_name, rider_count FROM PLATFORM WHERE platform_id = 1;
-
--- Add a new Rider (Requires name, IC, phone, platform_id, License Plate)
-EXEC prc_add_rider('Bob The Builder', '880101-14-1234', '0129999999', 1, 'WWW8888');
-
--- Show platform rider count AFTER insert
-SELECT platform_id, platform_name, rider_count FROM PLATFORM WHERE platform_id = 1;
-
--- Show the new rider row and default initialization details
-SELECT rider_id, name, status, ongoing_delivery FROM RIDER WHERE identification_no = '880101-14-1234';
-
-
--- =========================================================
--- 10. GENERATE ANALYTICAL REPORTS
--- =========================================================
-
--- 10A. Average Order Value Report
-EXEC prc_average_order_value_report;
--- Optional: specific month only (1-12)
-EXEC prc_average_order_value_report(4);
-
--- 10B. Coin Transaction History (Specific to logged in user)
-EXEC prc_coin_transaction_history(App_Session.get_customer_id);
-
--- 10C. Customer Retention Report (Inactivity risk analysis)
-EXEC prc_customer_retention_report;
-
--- 10D. Monthly Restaurant Sales Report 
-EXEC prc_monthly_restaurant_sales;
-
--- 10E. Rider Delivery Report (Requires month 1-12)
-EXEC prc_rider_delivery_report(4);
-
--- 10F. Subscription Countdown Report
-EXEC prc_sub_countdown_report;
-
--- 10G. Voucher Redemption Report 
-EXEC prc_voucher_redemption_report;
--- Optional: specific voucher only
-EXEC prc_voucher_redemption_report(1);
-
--- 10H. Top 10 Most Ordered Menu Items Report
-EXEC prc_top_menu_item_report;
--- Optional: specific month only (1-12)
-EXEC prc_top_menu_item_report(4);
-
--- 10I. Top 10 Customer Spending Report
-EXEC prc_top_cus_spending_report;
--- Optional: specific month only (1-12)
-EXEC prc_top_cus_spending_report(4);
-
--- 10J. Platform Report
--- No param: rolling last 90 days
-EXEC prc_platform_report;
-
--- =========================================================
--- END OF DEMO
--- =========================================================
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ENVIRONMENT SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run the following in SQL*Plus to create the test user with DBA privileges.
+
+    DROP USER shopgrab CASCADE;
+    CREATE USER shopgrab IDENTIFIED BY pass6969;
+    GRANT DBA TO shopgrab;
+    GRANT CREATE SESSION TO shopgrab;
+
+Connect using:
+    Username : shopgrab
+    Password : pass6969
+
+Then configure output and load scripts in strict dependency order:
+
+    SET SERVEROUTPUT ON
+    SET LINESIZE 120
+    SET PAGESIZE 100
+    SET DEFINE OFF
+
+    @create_table.sql
+    @setup.sql
+    @lv0_table.sql
+    @lv1_table.sql
+    @lv2_table.sql
+    @lv3_table.sql
+    @lv4_table.sql
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 1 — REGISTER A NEW CUSTOMER
+  Procedure: prc_register_customer
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Appends a new row to the CUSTOMER table.
+
+  Trigger fired: trg_after_customer_insert
+    → Auto-creates an empty COIN_WALLET
+    → Auto-creates a default 'Silver' C_LOYALTY profile
+    → Calls prc_init_customer_defaults for default settings
+
+    EXEC prc_register_customer('shereen@email.com', 'shereen', '6969', '0112223344', 'A3809 PV18, KL');
+
+  Verify — customer row created:
+    SELECT customer_id, username, email FROM CUSTOMER WHERE username = 'shereen';
+
+  Verify — wallet and loyalty tier auto-created by trigger:
+    SELECT cl.customer_id, lt.tier_name, cl.total_spent
+    FROM C_LOYALTY cl JOIN LOYALTY_TIER lt ON lt.tier_id = cl.tier_id
+    WHERE cl.customer_id = (SELECT customer_id FROM CUSTOMER WHERE username = 'shereen');
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 2 — LOGIN & SESSION CHECK
+  Procedure: prc_login_customer | Package: App_Session
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Validates credentials and stores login state in the App_Session package.
+Use App_Session.get_customer_id throughout the rest of this demo.
+
+    EXEC prc_login_customer('shereen', '6969');
+
+  Verify — session is live:
+    SELECT App_Session.get_customer_id AS session_cust_id,
+           App_Session.get_username   AS session_user
+    FROM DUAL;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 3 — CLAIM A VOUCHER
+  Procedure: prc_claim_voucher
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Assigns a public voucher to the user's wallet.
+
+  Trigger fired: trg_before_vwallet_insert
+    → Blocks expired, inactive, or exhausted vouchers before insert
+
+    EXEC prc_claim_voucher(App_Session.get_customer_id, 'NEWUSER10');
+
+  Verify — voucher stored in wallet:
+    SELECT * FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
+
+  Guard — duplicate claim (throws Application Error):
+    EXEC prc_claim_voucher(App_Session.get_customer_id, 'NEWUSER10');
+
+  Guard — non-existent voucher code:
+    EXEC prc_claim_voucher(App_Session.get_customer_id, 'FAKEDISCOUNT99');
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 4 — SUBSCRIBE TO PREMIUM
+  Procedure: prc_add_subscription
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Creates a SUBSCRIPTION row and chains to payment logic.
+Running it again stacks an additional +30 days on top of the current end date.
+
+  Trigger fired: trg_after_sub_payment_insert
+    → Activates subscription seamlessly
+
+  Check state before subscribing:
+    SELECT subscription_id, plan_id, status, start_date, end_date
+    FROM SUBSCRIPTION WHERE customer_id = App_Session.get_customer_id;
+
+  First subscription:
+    EXEC prc_add_subscription(App_Session.get_customer_id);
+
+  Stack another +30 days:
+    EXEC prc_add_subscription(App_Session.get_customer_id);
+
+  Verify — date stacking (latest 2 rows):
+    SELECT subscription_id, plan_id, status, start_date, end_date
+    FROM SUBSCRIPTION WHERE customer_id = App_Session.get_customer_id
+    ORDER BY subscription_id DESC FETCH FIRST 2 ROWS ONLY;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 5 — BUILD A CART
+  Procedure: prc_add_to_cart | prc_view_cart
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Inserts items into the TEMP_CART global temporary table.
+
+  Trigger fired: trg_before_cart_insert
+    → Enforces single-restaurant rule — mixing restaurants is blocked
+
+  Add items from Burger King (restaurant_id = 1):
+    EXEC prc_add_to_cart(1, 1, 2);
+    EXEC prc_add_to_cart(4, 1, 1);
+    EXEC prc_add_to_cart(5, 1, 2);
+
+  Guard — mixing restaurants triggers a block (restaurant_id = 2):
+    EXEC prc_add_to_cart(6, 2, 1);
+
+  View cart:
+    EXEC prc_view_cart;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 6 — CHECKOUT (FULL TRIGGER CHAIN DEMO)
+  Procedure: prc_checkout
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Orchestrates discount application, payment creation, and receipt generation.
+Because the customer is subscribed (Step 4), delivery is free via prc_apply_discounts.
+
+  Triggers fired:
+    → trg_after_cust_order_insert  : Assigns rider, increments RIDER.ongoing_delivery
+    → trg_after_payment_insert     : Awards coins, empties TEMP_CART, marks voucher used
+    → trg_before_cloyalty_upd      : Checks total_spent and upgrades loyalty tier if eligible
+    → trg_after_voucher_update     : Decrements public VOUCHER.usage_limit
+
+  Check state before checkout:
+    SELECT total_coins FROM COIN_WALLET WHERE customer_id = App_Session.get_customer_id;
+    SELECT voucher_id, is_used FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
+    SELECT usage_limit, status FROM VOUCHER WHERE voucher_id = 1;
+    SELECT cl.total_spent, lt.tier_name FROM C_LOYALTY cl
+    JOIN LOYALTY_TIER lt ON cl.tier_id = lt.tier_id
+    WHERE cl.customer_id = App_Session.get_customer_id;
+
+  Execute checkout (Delivery, E-Wallet, voucher 1, 0 coins redeemed):
+    EXEC prc_checkout('D', 'E-Wallet', 'A3809 PV18, KL', 1, 0);
+
+  Verify after checkout:
+
+    Coins awarded (trg_after_payment_insert):
+      SELECT total_coins FROM COIN_WALLET WHERE customer_id = App_Session.get_customer_id;
+
+    Loyalty tier updated (trg_before_cloyalty_upd):
+      SELECT cl.total_spent, lt.tier_name FROM C_LOYALTY cl
+      JOIN LOYALTY_TIER lt ON cl.tier_id = lt.tier_id
+      WHERE cl.customer_id = App_Session.get_customer_id;
+
+    Voucher marked as used:
+      SELECT voucher_id, is_used FROM VOUCHER_WALLET WHERE customer_id = App_Session.get_customer_id;
+
+    Public voucher usage_limit decremented (trg_after_voucher_update):
+      SELECT usage_limit, status FROM VOUCHER WHERE voucher_id = 1;
+
+    Rider assigned (trg_after_cust_order_insert):
+      SELECT order_id, rider_id, order_status
+      FROM CUST_ORDER WHERE customer_id = App_Session.get_customer_id
+      ORDER BY order_id DESC FETCH FIRST 1 ROW ONLY;
+
+      SELECT rider_id, ongoing_delivery, status FROM RIDER WHERE rider_id = (
+          SELECT rider_id FROM CUST_ORDER
+          WHERE customer_id = App_Session.get_customer_id
+          ORDER BY order_id DESC FETCH FIRST 1 ROW ONLY
+      );
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 7 — COMPLETE THE DELIVERY
+  Procedure: prc_complete_delivery
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Closes the order cycle — flips order status to Completed and frees the rider.
+
+  Trigger fired: trg_before_rider_update
+    → Decrements ongoing_delivery by 1
+    → If ongoing_delivery drops below 5, reverts rider status from 'Busy' to 'Available'
+
+    EXEC prc_complete_delivery(50);
+
+  Verify — order status:
+    SELECT order_id, order_status FROM CUST_ORDER WHERE order_id = 50;
+
+  Verify — rider workload decremented:
+    SELECT rider_id, name, ongoing_delivery, status FROM RIDER WHERE rider_id = 21;
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 8 — ADD A NEW RIDER
+  Procedure: prc_add_rider
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Inserts a new rider and auto-syncs the platform's rider count.
+
+  Trigger fired: trg_after_rider_insert
+    → Increments PLATFORM.rider_count
+
+  Platform count before (Platform 1 = GrabFood):
+    SELECT platform_id, platform_name, rider_count FROM PLATFORM WHERE platform_id = 1;
+
+  Add the rider:
+    EXEC prc_add_rider('Bob The Builder', '880101-14-1234', '0129999999', 1, 'WWW8888');
+
+  Platform count after:
+    SELECT platform_id, platform_name, rider_count FROM PLATFORM WHERE platform_id = 1;
+
+  New rider row:
+    SELECT rider_id, name, status, ongoing_delivery FROM RIDER WHERE identification_no = '880101-14-1234';
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STEP 9 — ANALYTICAL REPORTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  A. Average Order Value
+       EXEC prc_average_order_value_report;
+       EXEC prc_average_order_value_report(4);        -- specific month
+
+  B. Coin Transaction History
+       EXEC prc_coin_transaction_history(App_Session.get_customer_id);
+
+  C. Customer Retention (inactivity risk)
+       EXEC prc_customer_retention_report;
+
+  D. Monthly Restaurant Sales
+       EXEC prc_monthly_restaurant_sales;
+
+  E. Rider Delivery Report
+       EXEC prc_rider_delivery_report(4);             -- month required
+
+  F. Subscription Countdown
+       EXEC prc_sub_countdown_report;
+
+  G. Voucher Redemption
+       EXEC prc_voucher_redemption_report;
+       EXEC prc_voucher_redemption_report(1);         -- specific voucher
+
+  H. Top 10 Most Ordered Menu Items
+       EXEC prc_top_menu_item_report;
+       EXEC prc_top_menu_item_report(4);              -- specific month
+
+  I. Top 10 Customer Spending
+       EXEC prc_top_cus_spending_report;
+       EXEC prc_top_cus_spending_report(4);           -- specific month
+
+  J. Platform Report (rolling last 90 days)
+       EXEC prc_platform_report;
+
