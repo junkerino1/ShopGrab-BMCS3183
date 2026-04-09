@@ -10,23 +10,13 @@ CREATE OR REPLACE PROCEDURE prc_prepare_order (
     p_platform_id      OUT NUMBER,
     p_status           OUT VARCHAR2
 ) AS
-    v_cart_count       NUMBER := 0;
-    v_restaurant_found BOOLEAN := FALSE;
+    v_cart_count         NUMBER := 0;
     e_no_available_rider EXCEPTION;
 
-    CURSOR c_cart_summary IS
-        SELECT COUNT(*) AS cart_count, NVL(SUM(subtotal), 0) AS cart_total
-        FROM TEMP_CART;
-
-    CURSOR c_cart_restaurant IS
-        SELECT DISTINCT restaurant_id
-        FROM TEMP_CART
-        WHERE ROWNUM = 1;
-
 BEGIN
-    p_status := 'SUCCESS';
-    p_rider_id := NULL;
-    p_platform_id := NULL;
+    p_status        := 'SUCCESS';
+    p_rider_id      := NULL;
+    p_platform_id   := NULL;
     p_delivery_addr := NULL;
 
     -- ==========================================================
@@ -43,25 +33,25 @@ BEGIN
     -- ==========================================================
     -- 2. VALIDATE CART
     -- ==========================================================
-    FOR cart_summary_rec IN c_cart_summary LOOP
-        v_cart_count := cart_summary_rec.cart_count;
-        p_cart_total := cart_summary_rec.cart_total;
-    END LOOP;
+    SELECT COUNT(*), NVL(SUM(subtotal), 0)
+    INTO v_cart_count, p_cart_total
+    FROM TEMP_CART;
 
     IF v_cart_count = 0 THEN
         p_status := 'Error: Your cart is empty.';
         RETURN;
     END IF;
 
-    FOR restaurant_rec IN c_cart_restaurant LOOP
-        v_restaurant_found := TRUE;
-        p_restaurant_id    := restaurant_rec.restaurant_id;
-    END LOOP;
-
-    IF NOT v_restaurant_found THEN
-        p_status := 'Error: Unable to resolve the restaurant for the current cart.';
-        RETURN;
-    END IF;
+    BEGIN
+        SELECT restaurant_id
+        INTO p_restaurant_id
+        FROM TEMP_CART
+        WHERE ROWNUM = 1;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            p_status := 'Error: Unable to resolve the restaurant for the current cart.';
+            RETURN;
+    END;
 
     -- ==========================================================
     -- 3. VALIDATE ORDER TYPE
@@ -89,7 +79,7 @@ BEGIN
 
         -- Auto-assign a random available rider from any platform
         BEGIN
-            SELECT rider_id, platform_id 
+            SELECT rider_id, platform_id
             INTO p_rider_id, p_platform_id
             FROM (
                 SELECT rider_id, platform_id
