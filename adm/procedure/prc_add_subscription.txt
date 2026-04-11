@@ -69,7 +69,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Subscription ID : ' || v_sub_id);
     DBMS_OUTPUT.PUT_LINE('Customer ID     : ' || p_customer_id);
     DBMS_OUTPUT.PUT_LINE('Plan            : ' || v_plan_name);
-    DBMS_OUTPUT.PUT_LINE('Price           : ' || TO_CHAR(v_plan_price, '$999.99'));
+    DBMS_OUTPUT.PUT_LINE('Price           : RM' || TO_CHAR(v_plan_price, '999.99'));
     DBMS_OUTPUT.PUT_LINE('Start Date      : ' || TO_CHAR(v_new_start, 'DD-MON-YYYY'));
     DBMS_OUTPUT.PUT_LINE('End Date        : ' || TO_CHAR(v_new_end, 'DD-MON-YYYY'));
     DBMS_OUTPUT.PUT_LINE('===================================');

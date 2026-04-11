@@ -28,6 +28,9 @@ Then configure output and load scripts in strict dependency order:
     @lv3_table.sql
     @lv4_table.sql
 
+    run complete_order_simulation.sql to mark all orders as completed and free up riders for testing.
+    @complete_order_simulation.sql
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   STEP 1 — REGISTER A NEW CUSTOMER
@@ -111,10 +114,9 @@ Running it again stacks an additional +30 days on top of the current end date.
   Stack another +30 days:
     EXEC prc_add_subscription(App_Session.get_customer_id);
 
-  Verify — date stacking (latest 2 rows):
+  Verify — date stacking:
     SELECT subscription_id, plan_id, status, start_date, end_date
-    FROM SUBSCRIPTION WHERE customer_id = App_Session.get_customer_id
-    ORDER BY subscription_id DESC FETCH FIRST 2 ROWS ONLY;
+    FROM SUBSCRIPTION WHERE customer_id = App_Session.get_customer_id;
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -182,13 +184,13 @@ Because the customer is subscribed (Step 4), delivery is free via prc_apply_disc
 
     Rider assigned (trg_after_cust_order_insert):
       SELECT order_id, rider_id, order_status
-      FROM CUST_ORDER WHERE customer_id = App_Session.get_customer_id
-      ORDER BY order_id DESC FETCH FIRST 1 ROW ONLY;
+      FROM CUST_ORDER WHERE customer_id = App_Session.get_customer_id;
+
+    Please remember this order_id
 
       SELECT rider_id, ongoing_delivery, status FROM RIDER WHERE rider_id = (
           SELECT rider_id FROM CUST_ORDER
           WHERE customer_id = App_Session.get_customer_id
-          ORDER BY order_id DESC FETCH FIRST 1 ROW ONLY
       );
 
 
@@ -203,10 +205,10 @@ Closes the order cycle — flips order status to Completed and frees the rider.
     → Decrements ongoing_delivery by 1
     → If ongoing_delivery drops below 5, reverts rider status from 'Busy' to 'Available'
 
-    EXEC prc_complete_delivery(50);
+    EXEC prc_complete_delivery(insert your order_id);
 
   Verify — order status:
-    SELECT order_id, order_status FROM CUST_ORDER WHERE order_id = 50;
+    SELECT order_id, order_status FROM CUST_ORDER WHERE order_id = [insert your order_id];
 
   Verify — rider workload decremented:
     SELECT rider_id, name, ongoing_delivery, status FROM RIDER WHERE rider_id = 21;

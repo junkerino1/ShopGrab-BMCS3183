@@ -46,12 +46,12 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (11, 5, 2, 4.50, NULL);
 
 -- Order 12 (Cust 6, Seoul Garden): BBQ Beef Set(6) + Korean Iced Tea(10)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (12, 6, 2, 35.90, 'Well done');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (12, 6, 2, 35.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (12, 10, 2, 5.50, NULL);
 
 -- Order 13 (Cust 7, Tealive): Pearl Milk Tea(11) + Taro Smoothie(15)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (13, 11, 1, 8.50, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (13, 15, 1, 11.50, 'Extra boba');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (13, 15, 1, 11.50, NULL);
 
 -- Order 14 (Cust 7, Texas Chicken): Chicken Tender(22) + Coleslaw(24) + Milo Iced(25)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (14, 22, 1, 12.50, NULL);
@@ -63,7 +63,7 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (15, 20, 1, 14.90, NULL);
 
 -- Order 16 (Cust 8, Burger King): Chicken Royale(2) + BK Fish(3)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (16, 2, 2, 13.50, 'No mayo');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (16, 2, 2, 13.50, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (16, 3, 1, 11.90, NULL);
 
 -- Order 17 (Cust 9, Seoul Garden): Kimchi Jjigae(7) + Tteokbokki(9)
@@ -72,10 +72,10 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 
 -- Order 18 (Cust 9, Tealive): Brown Sugar Boba(12) + Matcha Latte(13)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (18, 12, 2, 10.90, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (18, 13, 1, 9.50, 'Hot');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (18, 13, 1, 9.50, NULL);
 
 -- Order 19 (Cust 10, Texas Chicken): Spicy Chicken(21) + Milo Iced(25)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (19, 21, 2, 14.90, 'Extra crispy');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (19, 21, 2, 14.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (19, 25, 2, 5.90, NULL);
 
 -- Order 20 (Cust 10, Din Tai Fung): Fried Rice(17) + Dan Dan Noodles(19)
@@ -92,14 +92,14 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 
 -- Order 23 (Cust 12, Tealive): Fruit Tea Passion(14) + Taro Smoothie(15)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (23, 14, 2, 7.90, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (23, 15, 1, 11.50, 'No sugar');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (23, 15, 1, 11.50, NULL);
 
 -- Order 24 (Cust 12, Texas Chicken): Spicy Chicken(21) + Honey Biscuit(23)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (24, 21, 1, 14.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (24, 23, 3, 4.90, NULL);
 
 -- Order 25 (Cust 13, Din Tai Fung): Xiao Long Bao(16) + Wonton Soup(18)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (25, 16, 1, 28.90, 'Extra vinegar');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (25, 16, 1, 28.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (25, 18, 1, 18.90, NULL);
 
 -- Order 26 (Cust 13, Burger King): BK Fish(3) + Coca-Cola(5)
@@ -107,11 +107,11 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (26, 5, 1, 4.50, NULL);
 
 -- Order 27 (Cust 14, Seoul Garden): Kimchi Jjigae(7) + Korean Iced Tea(10)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (27, 7, 2, 18.90, 'Less salt');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (27, 7, 2, 18.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (27, 10, 1, 5.50, NULL);
 
 -- Order 28 (Cust 14, Tealive): Pearl Milk Tea(11) + Brown Sugar Boba(12)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (28, 11, 1, 8.50, '50% sugar');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (28, 11, 1, 8.50, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (28, 12, 1, 10.90, NULL);
 
 -- Order 29 (Cust 15, Texas Chicken): Chicken Tender(22) + Coleslaw(24)
@@ -123,7 +123,7 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (30, 20, 2, 14.90, NULL);
 
 -- Order 31 (Cust 16, Burger King): Whopper(1) + Chicken Royale(2)
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (31, 1, 2, 15.90, 'Extra cheese');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (31, 1, 2, 15.90, NULL);
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (31, 2, 1, 13.50, NULL);
 
 -- Order 32 (Cust 16, Seoul Garden): BBQ Beef Set(6) + Tteokbokki(9)
@@ -140,7 +140,7 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 
 -- Order 35 (Cust 18, Din Tai Fung): Xiao Long Bao(16) + Fried Rice(17)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (35, 16, 2, 28.90, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (35, 17, 1, 22.50, 'Vegetarian');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (35, 17, 1, 22.50, NULL);
 
 -- Order 36 (Cust 18, Burger King): Onion Rings(4) + Coca-Cola(5)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (36, 4, 2, 6.50, NULL);
@@ -152,7 +152,7 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 
 -- Order 38 (Cust 19, Tealive): Taro Smoothie(15) + Pearl Milk Tea(11)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (38, 15, 1, 11.50, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (38, 11, 1, 8.50, '0% sugar');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (38, 11, 1, 8.50, NULL);
 
 -- Order 39 (Cust 20, Texas Chicken): Spicy Chicken(21) + Chicken Tender(22) + Honey Biscuit(23)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (39, 21, 1, 14.90, NULL);
@@ -161,7 +161,7 @@ INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark)
 
 -- Order 40 (Cust 20, Din Tai Fung): Wonton Soup(18) + Hot and Sour Soup(20)
 INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (40, 18, 1, 18.90, NULL);
-INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (40, 20, 1, 14.90, 'Extra hot');
+INSERT INTO ORDER_DETAILS (order_id, menu_item_id, quantity, unit_price, remark) VALUES (40, 20, 1, 14.90, NULL);
 
 -- 20. PAYMENT (40 payments for 40 orders)
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (1, 50.30, 'E-Wallet', 'Completed');
@@ -204,5 +204,22 @@ INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALU
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (38, 20.00, 'Online Banking', 'Completed');
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (39, 42.20, 'Credit Card', 'Completed');
 INSERT INTO PAYMENT (order_id, amount_paid, payment_method, payment_status) VALUES (40, 38.80, 'E-Wallet', 'Completed');
+
+-- Randomly complete 20 orders by calling the delivery completion procedure
+BEGIN
+	FOR rec IN (
+		SELECT order_id
+		FROM (
+			SELECT order_id
+			FROM CUST_ORDER
+			WHERE order_status = 'Pending'
+			ORDER BY DBMS_RANDOM.VALUE
+		)
+		WHERE ROWNUM <= 20
+	) LOOP
+		prc_complete_delivery(rec.order_id);
+	END LOOP;
+END;
+/
 
 COMMIT;
