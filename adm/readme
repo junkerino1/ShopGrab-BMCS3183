@@ -2,16 +2,21 @@
   ENVIRONMENT SETUP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Before running the scripts, ensure that you are in the correct directory where the SQL files are located. 
+The scripts are designed to be run in a specific order due to dependencies between tables, triggers, and procedures.
+Recommended method: right click and open terminal in the folder containing these SQL files, 
+then connect to SQL*Plus and run the scripts sequentially.
+
 Run the following in SQL*Plus to create the test user with DBA privileges.
 
     DROP USER shopgrab CASCADE;
-    CREATE USER shopgrab IDENTIFIED BY pass6969;
+    CREATE USER shopgrab IDENTIFIED BY 12345678;
     GRANT DBA TO shopgrab;
     GRANT CREATE SESSION TO shopgrab;
 
 Connect using:
     Username : shopgrab
-    Password : pass6969
+    Password : 12345678
 
 Then configure output and load scripts in strict dependency order:
 
